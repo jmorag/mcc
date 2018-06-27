@@ -21,4 +21,6 @@ executable mcc
   build-depends:       base >= 4.7 && < 5,
                        megaparsec >= 6.4.1,
                        mtl >= 2.2,
-                       recursion-schemes >= 5.0.2
+                       recursion-schemes >= 5.0.2,
+                       llvm-hs-pure >= 5.0,
+                       optparse-applicative
