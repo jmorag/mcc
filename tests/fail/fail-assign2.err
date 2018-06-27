@@ -1,0 +1,1 @@
+Fatal error: exception Failure("illegal assignment bool = int in b = 48")

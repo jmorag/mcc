@@ -1,0 +1,1 @@
+Fatal error: exception Failure("illegal assignment int = void in i = myvoid()")
