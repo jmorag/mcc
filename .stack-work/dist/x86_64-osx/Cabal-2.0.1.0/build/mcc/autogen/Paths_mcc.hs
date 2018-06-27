@@ -29,12 +29,12 @@ version :: Version
 version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
-bindir     = "/Users/josephmorag/Code/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/bin"
-libdir     = "/Users/josephmorag/Code/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/lib/x86_64-osx-ghc-8.2.2/mcc-0.1.0.0-8wV1S4nmYFHDmsZRYQelsW-mcc"
-dynlibdir  = "/Users/josephmorag/Code/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/lib/x86_64-osx-ghc-8.2.2"
-datadir    = "/Users/josephmorag/Code/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/share/x86_64-osx-ghc-8.2.2/mcc-0.1.0.0"
-libexecdir = "/Users/josephmorag/Code/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/libexec/x86_64-osx-ghc-8.2.2/mcc-0.1.0.0"
-sysconfdir = "/Users/josephmorag/Code/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/etc"
+bindir     = "/Users/Sefi/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/bin"
+libdir     = "/Users/Sefi/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/lib/x86_64-osx-ghc-8.2.2/mcc-0.1.0.0-7AOPrBblLJuFXiWrJIuEMX-mcc"
+dynlibdir  = "/Users/Sefi/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/lib/x86_64-osx-ghc-8.2.2"
+datadir    = "/Users/Sefi/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/share/x86_64-osx-ghc-8.2.2/mcc-0.1.0.0"
+libexecdir = "/Users/Sefi/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/libexec/x86_64-osx-ghc-8.2.2/mcc-0.1.0.0"
+sysconfdir = "/Users/Sefi/mcc/.stack-work/install/x86_64-osx/lts-11.12/8.2.2/etc"
 
 getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: IO FilePath
 getBinDir = catchIO (getEnv "mcc_bindir") (\_ -> return bindir)
