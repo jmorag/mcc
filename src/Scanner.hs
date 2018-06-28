@@ -1,5 +1,4 @@
-module Scanner (
-) where
+module Scanner where
 
 import Control.Monad (void)
 import Data.Void
