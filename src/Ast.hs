@@ -5,12 +5,12 @@ data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 data Uop = Neg | Not deriving (Show, Eq)
 
-data Type = Int | Bool | Float | Void deriving (Show, Eq)
+data Type = TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
 type Bind = (Type, String)
 
 data Expr = 
     Literal Int
-  | Fliteral String
+  | Fliteral Double
   | BoolLit Bool
   | Id String
   | Binop Op Expr Expr
@@ -39,3 +39,5 @@ data Function = Function
   , body :: [Statement]
   }
   deriving (Show, Eq)
+
+type Program = ([Bind], [Function])

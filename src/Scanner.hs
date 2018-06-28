@@ -27,8 +27,8 @@ parens = between (symbol "(") (symbol ")")
 brackets :: Parser a -> Parser a
 brackets = between (symbol "{") (symbol "}") 
 
-semi :: Parser String
-semi = symbol ";"
+semi :: Parser ()
+semi = symbol ";" >> return ()
 
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
@@ -43,3 +43,9 @@ identifier = (lexeme . try) (p >>= check)
     check x = if x `elem` rws
                 then fail $ "keyword " ++ show x ++ " cannot be an identifier"
                 else return x
+
+int :: Parser Int
+int = lexeme L.decimal
+
+float :: Parser Double
+float = lexeme L.float
