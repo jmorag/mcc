@@ -27,8 +27,11 @@ parens = between (symbol "(") (symbol ")")
 brackets :: Parser a -> Parser a
 brackets = between (symbol "{") (symbol "}") 
 
-semi :: Parser ()
-semi = symbol ";" >> return ()
+semi :: Parser String
+semi = symbol ";"
+
+comma :: Parser String
+comma = symbol ","
 
 rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
