@@ -23,4 +23,8 @@ executable mcc
                        mtl >= 2.2,
                        recursion-schemes >= 5.0.2,
                        llvm-hs-pure >= 5.0,
-                       optparse-applicative
+                       optparse-applicative,
+                       directory
+  other-modules:       Scanner,
+                       Parser,
+                       Ast

@@ -34,7 +34,8 @@ rword :: String -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
 rws :: [String] -- list of reserved words
-rws = ["if", "then", "else", "while", "true", "false", "for", "int", "bool", "float", "void", "return"]
+rws = ["if", "then", "else", "while", "true", "false", 
+       "for", "int", "bool", "float", "void", "return"]
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check)

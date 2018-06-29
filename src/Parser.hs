@@ -5,9 +5,7 @@ import Scanner
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Expr
-import Control.Applicative
 import Data.Either (lefts, rights)
-import Data.List (intersperse)
 
 opTable :: [[Operator Parser Expr]]
 opTable = [ [unary Neg "-", unary Not "!"]
@@ -16,7 +14,7 @@ opTable = [ [unary Neg "-", unary Not "!"]
           , [infixL Less "<", infixL Greater ">", 
              infixL Leq "<=", infixL Geq ">="]
           , [infixL Equal "==", infixL Neq "!="]
-          , [InfixR (\lhs rhs -> case lhs of Id s -> Assign s rhs) <$ symbol "="]
+          , [InfixR $ (\lhs rhs -> case lhs of Id s -> Assign s rhs) <$ symbol "="]
           ]
   where unary op sym = Prefix $ Unop op <$ symbol sym
         infixL op sym = InfixL $ Binop op <$ symbol sym
@@ -40,7 +38,7 @@ fdeclP :: Parser Function
 fdeclP = do
   typ <- typeP
   name <- identifier
-  formals <- parens argsP
+  formals <- formalsP
   body' <- brackets $ many vdeclOrStatement
   let locals = lefts body'
       body = rights body'
@@ -49,25 +47,27 @@ fdeclP = do
 vdeclOrStatement :: Parser (Either Bind Statement)
 vdeclOrStatement = (Left <$> try vdeclP) <|> (Right <$> statementP)
 
-argsP :: Parser [Bind]
-argsP = intersperse <$> (symbol ",") <*> many argP
-  where argP = (,) <$> typeP <*> identifier
+formalsP :: Parser [Bind]
+formalsP = parens $ formalP `sepBy` (symbol ",")
+  where formalP = (,) <$> typeP <*> identifier
 
 termP :: Parser Expr
 termP = parens exprP
     <|> Literal <$> int
-    <|> FLiteral <$> float
-    <|> (BoolLit <$> (try . rword "true" >> True <|> rword "false" >> False))
+    <|> Fliteral <$> float
+    <|> (BoolLit <$> ((rword "true" >> return True) <|> (rword "false" >> return False)))
     <|> Id <$> identifier
+    <|> Call <$> identifier <*> parens (exprP `sepBy` (symbol ","))
 
 exprP :: Parser Expr
 exprP = makeExprParser termP opTable
 
 statementP :: Parser Statement
-statementP = exprP >>= return . Expr
- <|> many statementP >>= return . Block
- <|> rword "return" >> exprP >>= return . Return
+statementP = (Expr <$> exprP <* semi)
+   <|> (Return <$> (rword "return" *> exprP <* semi))
  -- hold off on control flow for now
 
 programP :: Parser Program
-programP = (,) <$> many vdeclP <*> many fdeclP
+programP = sc >> ((,) <$> try (many vdeclP) <*> many fdeclP <* eof
+      <|>  (,) <$> return [] <*> many fdeclP <* eof)
+
