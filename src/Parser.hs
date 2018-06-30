@@ -15,7 +15,8 @@ opTable =
   , [infixL Leq "<=", infixL Geq ">=" ,infixL Less "<", infixL Greater ">"]
   , [infixL Equal "==", infixL Neq "!="]
   , [infixL And "&&"], [infixL Or "||"]
-  , [InfixR $ (\lhs rhs -> case lhs of Id s -> Assign s rhs) <$ symbol "="]
+  -- irrefutable pattern Id string on lhs of assignment
+  , [InfixR $ (\(Id s) rhs -> Assign s rhs) <$ symbol "="] 
   ]
   where unary op sym = Prefix $ Unop op <$ symbol sym
         infixL op sym = InfixL $ Binop op <$ symbol sym
@@ -23,8 +24,8 @@ opTable =
 
 termP :: Parser Expr
 termP = parens exprP
+    <|> try (Fliteral <$> float)
     <|> Literal <$> int
-    <|> Fliteral <$> float
     <|> (BoolLit <$> ((rword "true" >> return True) <|> (rword "false" >> return False)))
     <|> try (Call <$> identifier <*> parens (exprP `sepBy` comma))
     <|> Id <$> identifier
@@ -50,8 +51,16 @@ statementP = do
 
 statementP' :: Parser Statement
 statementP' = Expr <$> exprP <* semi
-  <|> Return <$> (rword "return" *> (option Noexpr exprP) <* semi)
-  -- control flow WIP
+  <|> Return <$> (rword "return" *> exprMaybe <* semi)
+  <|> ifP <|> forP <|> whileP <|> brackets statementP
+  where
+    ifP = If <$> (rword "if" *> parens exprP) <*> statementP 
+             <*> option (Block []) (rword "else" *> statementP)
+    forP = For <$> (rword "for" *> symbol "(" *> exprMaybe <* semi) 
+               <*> (exprP <* semi) <*> (exprMaybe <* symbol ")") 
+               <*> statementP
+    whileP = While <$> (rword "while" *> parens exprP) <*> statementP
+    exprMaybe = option Noexpr exprP
 
 fdeclP :: Parser Function
 fdeclP = do

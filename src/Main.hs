@@ -12,7 +12,10 @@ main = do
   passingTests <- filter (isSuffixOf ".mc") <$> listDirectory "tests/pass"
   forM_ passingTests $ \file -> withCurrentDirectory "tests/pass" $ do
     contents <- readFile file
-    putStrLn contents 
-    parseTest' programP contents
-    putStrLn $ replicate 100 '-'
+    case runParser programP file contents of
+      Right _ -> return ()
+      Left _ -> do
+        putStrLn contents 
+        parseTest' programP contents
+        putStrLn $ replicate 150 '-'
     
