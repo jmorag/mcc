@@ -1,4 +1,4 @@
-module Parser where
+module Parser (programP) where
 
 import Ast
 import Scanner
@@ -12,13 +12,17 @@ opTable =
   [ [unary Neg "-", unary Not "!"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add  "+", infixL Sub "-"]
-  , [infixL Leq "<=", infixL Geq ">=" ,infixL Less "<", infixL Greater ">"]
+  , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]
   , [infixL Equal "==", infixL Neq "!="]
   , [infixL And "&&"], [infixL Or "||"]
   -- irrefutable pattern Id string on lhs of assignment
   , [InfixR $ (\(Id s) rhs -> Assign s rhs) <$ symbol "="] 
   ]
-  where unary op sym = Prefix $ Unop op <$ symbol sym
+  where -- Megaparsec doesn't support multiple prefix operators by default,
+        -- but we need this in order to parse things like double negatives or
+        -- nots. Also, should we extend the language to include pointers, then 
+        -- the * and ** operators become actually important.
+        unary  op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
         infixL op sym = InfixL $ Binop op <$ symbol sym
         infixR op sym = InfixR $ Binop op <$ symbol sym
 
@@ -26,7 +30,8 @@ termP :: Parser Expr
 termP = parens exprP
     <|> try (Fliteral <$> float)
     <|> Literal <$> int
-    <|> (BoolLit <$> ((rword "true" >> return True) <|> (rword "false" >> return False)))
+    <|> (BoolLit <$> ((rword "true" >> return True) 
+                 <|> (rword "false" >> return False)))
     <|> try (Call <$> identifier <*> parens (exprP `sepBy` comma))
     <|> Id <$> identifier
 

@@ -1,4 +1,14 @@
-module Scanner where
+module Scanner (Parser,
+                sc, 
+                symbol, 
+                parens, 
+                brackets, 
+                semi, 
+                comma, 
+                rword, 
+                identifier, 
+                int, 
+                float) where
 
 import Control.Monad (void)
 import Data.Void
