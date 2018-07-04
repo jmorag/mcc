@@ -32,8 +32,8 @@ data Statement =
 
 
 data Function = Function
-  { name :: String
-  , typ  :: Type
+  { typ  :: Type
+  , name :: String
   , formals :: [Bind]
   , locals :: [Bind]
   , body :: [Statement]
