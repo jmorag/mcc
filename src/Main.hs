@@ -2,20 +2,43 @@ module Main where
 
 import Parser
 import Ast
-import Text.Megaparsec
+import Sast
+import Semant
+import Text.Megaparsec (runParser, parseTest')
 import System.Directory
 import Control.Monad
-import Data.List (isSuffixOf)
+import Options.Applicative
+import Data.Semigroup ((<>))
 
+
+data Action = Ast | Sast | LLVM | Compile FilePath
+data Options = Options Action FilePath
+
+actionP :: Parser Action
+actionP = flag' Ast (long "ast" <> short 'a')
+  <|> flag' Sast (long "sast" <> short 's')
+  <|> flag' LLVM (long "llvm" <> short 'l')
+  <|> flag' Compile (long "compile" <> short 'c') 
+            <*> strOption (short 'o' <> value "a.out")
+  -- Compile is default, so in the absence of a flag, return this
+  <|> Compile <$> strOption (short 'o' <> value "a.out")
+              
+optionsP = Options <$> actionP <*> strArgument (help "input file" <> metavar "FILE")
+              
 main :: IO ()
-main = do
-  passingTests <- filter (isSuffixOf ".mc") <$> listDirectory "tests/pass"
-  forM_ passingTests $ \file -> withCurrentDirectory "tests/pass" $ do
-    contents <- readFile file
-    case runParser programP file contents of
-      Right _ -> return ()
-      Left _ -> do
-        putStrLn contents 
-        parseTest' programP contents
-        putStrLn $ replicate 150 '-'
-    
+main = run =<< execParser (optionsP `withInfo` "Compile stuff")
+  where
+    withInfo opts desc = info (helper <*> opts) $ progDesc desc
+
+run :: Options -> IO ()
+run (Options action infile) = do
+  program <- readFile infile
+  let parseTree = runParser programP infile program
+  case parseTree of
+    Left _ -> parseTest' programP program
+    Right ast ->
+      case action of 
+        Ast -> print ast
+        Sast -> undefined
+        LLVM -> undefined
+        Compile outfile -> undefined
