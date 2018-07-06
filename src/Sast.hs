@@ -5,10 +5,10 @@ import Ast
 type SExpr = (Type, SExpr')
 data SExpr' = 
     SLiteral Int
-  | SFliteral String
+  | SFliteral Double
   | SBoolLit Bool
   | SId String
-  | SBinop SExpr Op SExpr
+  | SBinop Op SExpr SExpr
   | SUnop Uop SExpr
   | SAssign String SExpr
   | SCall String [SExpr]
