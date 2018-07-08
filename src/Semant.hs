@@ -10,7 +10,7 @@ import Control.Monad.Except
 
 type Vars = M.Map String Type
 type Funcs = M.Map String Function
-type Env = (Vars, Funcs)
+data Env = Env { vars :: Vars, funcs :: Funcs, thisFunc :: Function }
 
 -- Type of semantic checker computations that can only read from the environment
 type SemantR = ExceptT String (Reader Env)
@@ -38,20 +38,6 @@ builtIns = M.fromList $ map toFunc
   where
     toFunc (name, ty) = (name, Function TyVoid name [(ty, "x")] [] [])
 
-checkProgram :: Program -> SProgram
-checkProgram (binds, funcs) = (checkBinds "global" binds, map checkFunc funcs)
-
-checkFunc :: Function -> SFunction
-checkFunc func = SFunction { styp = typ func 
-                           , sname = name func
-                           , sformals = checkBinds "formal" (formals func)
-                           , slocals = checkBinds "local" (locals func)
-                           , sbody = map checkStatement (body func)
-                           }
-
-checkStatement :: Statement -> SStatement
-checkStatement = undefined
-
 checkProgram' :: Program -> Either String SProgram
 checkProgram' (binds, funcs) = do
   return ([], [])
@@ -65,7 +51,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Noexpr     -> return (TyVoid, SNoexpr)
 
   Id s -> do
-    (vars, _) <- ask
+    vars <- vars <$> ask
     case M.lookup s vars of
       Just ty -> return (ty, SId s)
       Nothing -> throwError $ "Unbound variable " ++ s
@@ -80,7 +66,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
                      return (t1, SBinop op lhs' rhs')
 
         checkBool  = guardInfo (t1 == TyBool)
-                     "incompatible types in boolean operation" $
+                     "expected boolean expression" $
                      return (t1, SBinop op lhs' rhs')
     case op of 
       Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
@@ -100,7 +86,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
 
   Assign s e -> do
     e'@(ty, _) <- checkExpr e
-    (vars, _) <- ask
+    vars <- vars <$> ask
     case M.lookup s vars of
       Nothing -> throwError $ "Unbound variable " ++ s
       Just ty' -> guardInfo (ty == ty') 
@@ -108,7 +94,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
                   return (ty, SAssign s e')
 
   Call s es -> do
-    (_, funcs) <- ask
+    funcs <- funcs <$> ask
     case M.lookup s funcs of
       Nothing -> throwError $ "Undefined function " ++ s
       Just f -> do
@@ -117,7 +103,49 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
                   ("Argument of wrong type in call of " ++ name f) $
                   return (typ f, SCall s es')
         
+checkStatement :: Statement -> SemantR SStatement
+checkStatement stmt = case stmt of
+  Expr e -> SExpr <$> checkExpr e
 
+  If pred cons alt -> do
+    pred'@(ty, _) <- checkExpr pred
+    guardInfo (ty == TyBool) "Expected boolean expression" $ do
+    cons' <- checkStatement cons
+    alt'  <- checkStatement alt
+    return $ SIf pred' cons' alt'
+    
+  For init cond inc action -> do
+    cond'@(ty, _) <- checkExpr cond
+    guardInfo (ty == TyBool) "Expected boolean expression" $ do
+    init' <- checkExpr init
+    inc'  <- checkExpr inc
+    action' <- checkStatement action
+    return $ SFor init' cond' inc' action'
+
+  While cond action -> do
+    cond'@(ty, _) <- checkExpr cond
+    guardInfo (ty == TyBool) "Expected boolean expression" $ do
+    action' <- checkStatement action
+    return $ SWhile cond' action'
+
+  Return expr -> do
+    e@(ty, _) <- checkExpr expr
+    fun <- thisFunc <$> ask
+    guardInfo (ty == typ fun) 
+      "Type of return expression inconsistent with declared type" $ do
+    return $ SReturn e
+
+  Block sl -> case sl of
+    -- unsure is this first case is necessary...
+    [s@(Return _)] -> do s' <- checkStatement s; return $ SBlock [s']
+    -------------------------
+    (Return _) : _ -> throwError "nothing can follow a return"
+    Block sl : ss -> checkStatement $ Block (sl ++ ss)
+    _ -> SBlock <$> mapM checkStatement sl
+
+    
+checkFunction :: Function -> SemantS SFunction    
+checkFunction = undefined
              
 
 
