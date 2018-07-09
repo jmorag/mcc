@@ -3,6 +3,7 @@ module Semant where
 import Ast
 import Sast
 import qualified Data.Map as M
+import Data.Tuple (swap)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -43,7 +44,7 @@ checkProgram' (binds, funcs) = do
   return ([], [])
 
 
-checkExpr :: Expr -> SemantR SExpr
+checkExpr :: Expr -> SemantS SExpr
 checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Literal i  -> return (TyInt, SLiteral i)
   Fliteral f -> return (TyFloat, SFliteral f)
@@ -51,7 +52,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Noexpr     -> return (TyVoid, SNoexpr)
 
   Id s -> do
-    vars <- vars <$> ask
+    vars <- vars <$> get
     case M.lookup s vars of
       Just ty -> return (ty, SId s)
       Nothing -> throwError $ "Unbound variable " ++ s
@@ -86,7 +87,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
 
   Assign s e -> do
     e'@(ty, _) <- checkExpr e
-    vars <- vars <$> ask
+    vars <- vars <$> get
     case M.lookup s vars of
       Nothing -> throwError $ "Unbound variable " ++ s
       Just ty' -> guardInfo (ty == ty') 
@@ -94,7 +95,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
                   return (ty, SAssign s e')
 
   Call s es -> do
-    funcs <- funcs <$> ask
+    funcs <- funcs <$> get
     case M.lookup s funcs of
       Nothing -> throwError $ "Undefined function " ++ s
       Just f -> do
@@ -103,7 +104,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
                   ("Argument of wrong type in call of " ++ name f) $
                   return (typ f, SCall s es')
         
-checkStatement :: Statement -> SemantR SStatement
+checkStatement :: Statement -> SemantS SStatement
 checkStatement stmt = case stmt of
   Expr e -> SExpr <$> checkExpr e
 
@@ -130,7 +131,7 @@ checkStatement stmt = case stmt of
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr
-    fun <- thisFunc <$> ask
+    fun <- thisFunc <$> get
     guardInfo (ty == typ fun) 
       "Type of return expression inconsistent with declared type" $ do
     return $ SReturn e
@@ -145,7 +146,35 @@ checkStatement stmt = case stmt of
 
     
 checkFunction :: Function -> SemantS SFunction    
-checkFunction = undefined
+checkFunction func = do
+  -- add the fname to the table and check for conflicts
+  funcs <- funcs <$> get
+  guardInfo (M.lookup (name func) funcs == Nothing) 
+            ("Redeclaration of function " ++ name func) $ do
+  -- add this func to symbol table
+  modify $ \env -> 
+    env { funcs = M.insert (name func) func funcs, thisFunc = func }
+
+  -- check variables
+  let formals' = checkBinds "formal" (formals func)
+  let locals'  = checkBinds "local"  (locals func)
+  -- create local variable table
+  globals <- vars <$> get
+  let allVars = M.toList globals ++ (map swap (formals' ++ locals'))
+      localVars = M.fromList allVars
+
+  -- Overwrite local variables into the environment for the body checking
+  modify $ \env -> env { vars = localVars }
+  body' <- mapM checkStatement (body func)
+  -- Set the env back to the way it was
+  modify $ \env -> env { vars = globals }
+
+  return $ SFunction { styp = typ func 
+                     , sname = name func
+                     , sformals = formals'
+                     , slocals = locals'
+                     , sbody = body'
+                     }
+
+
              
-
-
