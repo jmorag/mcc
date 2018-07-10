@@ -65,4 +65,18 @@ test action = do
                     Right sast -> return ()
           LLVM -> undefined
           Compile outfile -> undefined
+  failing <- filter (isSuffixOf ".mc") <$> listDirectory "tests/fail"
+  forM_ failing $ \infile -> withCurrentDirectory "tests/fail" $ do
+    program <- readFile infile
+    let parseTree = runParser programP infile program
+    case parseTree of
+      Left _ -> parseTest' programP program
+      Right ast ->
+        case action of 
+          Ast -> return ()
+          Sast -> case checkProgram ast of
+                    Left err -> return ()
+                    Right sast -> do putStrLn program; print sast; putStrLn (replicate 150 '-')
+          LLVM -> undefined
+          Compile outfile -> undefined
 
