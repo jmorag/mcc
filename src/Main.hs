@@ -59,10 +59,10 @@ test action = do
       Left _ -> parseTest' programP program
       Right ast ->
         case action of 
-          Ast -> print ast
+          Ast -> return ()
           Sast -> case checkProgram ast of
-                    Left err -> putStrLn err
-                    Right sast -> print sast
+                    Left err -> do putStrLn program; putStrLn err; putStrLn (replicate 150 '-')
+                    Right sast -> return ()
           LLVM -> undefined
           Compile outfile -> undefined
 

@@ -135,7 +135,7 @@ checkStatement stmt = case stmt of
     -- unsure is this first case is necessary...
     [s@(Return _)] -> do s' <- checkStatement s; return $ SBlock [s']
     -------------------------
-    (Return _) : _ -> throwError "nothing can follow a return"
+    (Return _) : _ -> throwError $ "nothing can follow a return: error in " ++ show stmt
     Block sl : ss -> checkStatement $ Block (sl ++ ss)
     _ -> SBlock <$> mapM checkStatement sl
 

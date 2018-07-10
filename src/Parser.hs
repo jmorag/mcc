@@ -59,6 +59,9 @@ statementP' = Expr <$> exprP <* semi
   <|> Return <$> (rword "return" *> exprMaybe <* semi)
   <|> ifP <|> forP <|> whileP <|> brackets statementP
   where
+    -- Buggy: this doesn't parse 
+    -- if (x < 2) return 1; return fib(x-1) + fib(x-2); 
+    -- correctly. It sticks the to returns in the same block after the if
     ifP = If <$> (rword "if" *> parens exprP) <*> statementP 
              <*> option (Block []) (rword "else" *> statementP)
     forP = For <$> (rword "for" *> symbol "(" *> exprMaybe <* semi) 
