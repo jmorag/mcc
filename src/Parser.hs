@@ -68,11 +68,14 @@ statementP' = Expr <$> exprP <* semi
     exprMaybe = option Noexpr exprP
 
 fdeclP :: Parser Function
-fdeclP = Function <$> typeP <*> identifier <*> formalsP <*> locals <*> body
-  where 
-    locals = lefts <$> body'
-    body = rights <$> body'
-    body' = brackets $ many vdeclOrStatement
+fdeclP = do
+  typ <- typeP
+  name <- identifier
+  formals <- formalsP
+  body' <- brackets $ many vdeclOrStatement
+  let locals = lefts body'
+      body = rights body'
+  return $ Function typ name formals locals body
 
 vdeclOrStatement :: Parser (Either Bind Statement)
 vdeclOrStatement = Left <$> vdeclP <|> Right <$> statementP
