@@ -39,11 +39,6 @@ builtIns = M.fromList $ map toFunc
   where
     toFunc (name, ty) = (name, Function TyVoid name [(ty, "x")] [] [])
 
-checkProgram' :: Program -> Either String SProgram
-checkProgram' (binds, funcs) = do
-  return ([], [])
-
-
 checkExpr :: Expr -> SemantS SExpr
 checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Literal i  -> return (TyInt, SLiteral i)
@@ -177,4 +172,22 @@ checkFunction func = do
                      }
 
 
-             
+checkProgram :: Program -> Either String SProgram
+checkProgram (binds, funcs) = 
+  evalState (runExceptT (checkProgram' (binds, funcs))) baseEnv
+  where
+  baseEnv = Env { vars = M.empty, 
+                  funcs = builtIns, 
+                  thisFunc = garbageFunc }
+  garbageFunc = Function { typ = TyVoid
+                         , name = ""
+                         , formals = []
+                         , locals = []
+                         , body = []
+                         }
+  checkProgram' (binds, funcs) = do
+    let globals = checkBinds "global" binds
+    modify $ \env -> env { vars = M.fromList (map swap globals) }
+    funcs' <- mapM checkFunction funcs
+    return (globals, funcs')
+  

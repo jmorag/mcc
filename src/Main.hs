@@ -4,6 +4,7 @@ import Parser
 import Ast
 import Sast
 import Semant
+import Data.List (isSuffixOf)
 import Text.Megaparsec (runParser, parseTest')
 import System.Directory
 import Control.Monad
@@ -39,6 +40,29 @@ run (Options action infile) = do
     Right ast ->
       case action of 
         Ast -> print ast
-        Sast -> undefined
+        Sast -> case checkProgram ast of
+                  Left err -> putStrLn err
+                  Right sast -> print sast
         LLVM -> undefined
         Compile outfile -> undefined
+
+
+
+
+test :: Action -> IO ()
+test action = do
+  passing <- filter (isSuffixOf ".mc") <$> listDirectory "tests/pass"
+  forM_ passing $ \infile -> withCurrentDirectory "tests/pass" $ do
+    program <- readFile infile
+    let parseTree = runParser programP infile program
+    case parseTree of
+      Left _ -> parseTest' programP program
+      Right ast ->
+        case action of 
+          Ast -> print ast
+          Sast -> case checkProgram ast of
+                    Left err -> putStrLn err
+                    Right sast -> print sast
+          LLVM -> undefined
+          Compile outfile -> undefined
+
