@@ -47,7 +47,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Noexpr     -> return (TyVoid, SNoexpr)
 
   Id s -> do
-    vars <- vars <$> get
+    vars <- gets vars
     case M.lookup s vars of
       Just ty -> return (ty, SId s)
       Nothing -> throwError $ "Unbound variable " ++ s
@@ -57,20 +57,20 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
     rhs'@(t2, _) <- checkExpr rhs
     guardInfo (t1 == t2) "incompatible types in binary operation" $ do
 
-    let checkArith = guardInfo (isNumeric t1)
-                     "incompatible types in arithmetic operation" $
-                     return (t1, SBinop op lhs' rhs')
+      let checkArith = guardInfo (isNumeric t1)
+                       "incompatible types in arithmetic operation" $
+                       return (t1, SBinop op lhs' rhs')
 
-        checkBool  = guardInfo (t1 == TyBool)
-                     "expected boolean expression" $
-                     return (t1, SBinop op lhs' rhs')
-    case op of 
-      Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
-      And -> checkBool; Or -> checkBool;
-      -- remaining are relational operators
-      _ -> guardInfo (isNumeric t1) 
-           "incompatible types in relational operation" $
-           return (TyBool, SBinop op lhs' rhs')
+          checkBool  = guardInfo (t1 == TyBool)
+                       "expected boolean expression" $
+                       return (t1, SBinop op lhs' rhs')
+      case op of 
+        Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
+        And -> checkBool; Or -> checkBool;
+        -- remaining are relational operators
+        _ -> guardInfo (isNumeric t1) 
+             "incompatible types in relational operation" $
+             return (TyBool, SBinop op lhs' rhs')
 
   Unop op e -> do
     e'@(ty, _) <- checkExpr e
@@ -82,7 +82,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
 
   Assign s e -> do
     e'@(ty, _) <- checkExpr e
-    vars <- vars <$> get
+    vars <- gets vars
     case M.lookup s vars of
       Nothing -> throwError $ "Unbound variable " ++ s
       Just ty' -> guardInfo (ty == ty') 
@@ -90,7 +90,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
                   return (ty, SAssign s e')
 
   Call s es -> do
-    funcs <- funcs <$> get
+    funcs <- gets funcs
     case M.lookup s funcs of
       Nothing -> throwError $ "Undefined function " ++ s
       Just f -> do
@@ -106,30 +106,30 @@ checkStatement stmt = case stmt of
   If pred cons alt -> do
     pred'@(ty, _) <- checkExpr pred
     guardInfo (ty == TyBool) "Expected boolean expression" $ do
-    cons' <- checkStatement cons
-    alt'  <- checkStatement alt
-    return $ SIf pred' cons' alt'
+      cons' <- checkStatement cons
+      alt'  <- checkStatement alt
+      return $ SIf pred' cons' alt'
     
   For init cond inc action -> do
     cond'@(ty, _) <- checkExpr cond
     guardInfo (ty == TyBool) "Expected boolean expression" $ do
-    init' <- checkExpr init
-    inc'  <- checkExpr inc
-    action' <- checkStatement action
-    return $ SFor init' cond' inc' action'
+      init' <- checkExpr init
+      inc'  <- checkExpr inc
+      action' <- checkStatement action
+      return $ SFor init' cond' inc' action'
 
   While cond action -> do
     cond'@(ty, _) <- checkExpr cond
     guardInfo (ty == TyBool) "Expected boolean expression" $ do
-    action' <- checkStatement action
-    return $ SWhile cond' action'
+      action' <- checkStatement action
+      return $ SWhile cond' action'
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr
-    fun <- thisFunc <$> get
+    fun <- gets thisFunc
     guardInfo (ty == typ fun) 
       "Type of return expression inconsistent with declared type" $ do
-    return $ SReturn e
+        return $ SReturn e
 
   Block sl -> case sl of
     -- unsure is this first case is necessary...
@@ -143,18 +143,18 @@ checkStatement stmt = case stmt of
 checkFunction :: Function -> SemantS SFunction    
 checkFunction func = do
   -- add the fname to the table and check for conflicts
-  funcs <- funcs <$> get
+  funcs <- gets funcs
   guardInfo (M.lookup (name func) funcs == Nothing) 
             ("Redeclaration of function " ++ name func) $ do
-  -- add this func to symbol table
-  modify $ \env -> 
-    env { funcs = M.insert (name func) func funcs, thisFunc = func }
+    -- add this func to symbol table
+    modify $ \env -> 
+      env { funcs = M.insert (name func) func funcs, thisFunc = func }
 
   -- check variables
   let formals' = checkBinds "formal" (formals func)
   let locals'  = checkBinds "local"  (locals func)
   -- create local variable table
-  globals <- vars <$> get
+  globals <- gets vars
   let allVars = M.toList globals ++ (map swap (formals' ++ locals'))
       localVars = M.fromList allVars
 
