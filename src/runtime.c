@@ -1,5 +1,5 @@
 /*
- *  A function illustrating how to link C code to code generated from LLVM 
+ *  The printing functions needed by microc
  */
 
 #include <stdio.h>
@@ -64,6 +64,15 @@ void printbig(int c)
   } while (index & 0x7); 
 }
 
+void print(int i) { printf("%d\n", i); }
+
+void printb(int b) {
+    if (b) printf("True\n");
+    else   printf("False\n");
+}
+
+// In microc, this is called printf, but that name is obviously taken in real C
+void printfloat(double f) { printf("%f\n", f); }
 
 #ifdef BUILD_TEST
 int main()

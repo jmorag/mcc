@@ -63,16 +63,9 @@ run (Options action infile) = do
         Compile outfile -> undefined
 
 llvmTest :: IO ()
-llvmTest = T.putStrLn $ ppllvm $ L.buildModule "microC" $ do 
-   L.emitDefn $ AST.GlobalDefinition $ Global.globalVariableDefaults 
-      { Global.name = "global_var", Global.type' = AST.i32,
-      Global.initializer = Just (C.Int 32 0) }
-
-   L.function "add" [(AST.i32, "a"), (AST.i32, "b")] AST.i32 $ \[a, b] -> do
-     entry <- L.block `L.named` "entry"; do
-        c <- L.add a b
-        d <- L.add a c
-        L.ret d
+llvmTest = let body [a, b] = L.add a b >>= L.ret in
+   T.putStrLn $ ppllvm $ L.buildModule "microC" $
+   L.function "main" [(AST.i32, "a"), (AST.i32, "b")] AST.i32 body
 
 
 test :: Action -> IO ()
