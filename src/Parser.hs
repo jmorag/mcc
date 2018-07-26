@@ -15,7 +15,8 @@ opTable =
   , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]
   , [infixL Equal "==", infixL Neq "!="]
   , [infixL And "&&"], [infixL Or "||"]
-  -- irrefutable pattern Id string on lhs of assignment
+  -- irrefutable pattern Id string on lhs of assignment will error out if you
+  -- try to do something stupid like "1 = 2"
   , [InfixR $ (\(Id s) rhs -> Assign s rhs) <$ symbol "="] 
   ]
   where -- Megaparsec doesn't support multiple prefix operators by default,
@@ -24,7 +25,6 @@ opTable =
         -- the * and ** operators become actually important.
         unary  op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
         infixL op sym = InfixL $ Binop op <$ symbol sym
-        infixR op sym = InfixR $ Binop op <$ symbol sym
 
 termP :: Parser Expr
 termP = parens exprP
