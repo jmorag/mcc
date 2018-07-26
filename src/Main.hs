@@ -15,8 +15,9 @@ import Options.Applicative
 import Data.Semigroup ((<>))
 
 import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text.Lazy as T
 
-import LLVM.Pretty  -- from the llvm-hs-pretty package
+import LLVM.Pretty
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Type as AST
 import qualified LLVM.AST.Global as Global
@@ -56,16 +57,31 @@ run (Options action infile) = do
     Right ast ->
       case action of 
         Ast -> print ast
-        Sast -> case checkProgram ast of
-                  Left err -> putStrLn err
-                  Right sast -> print sast
-        LLVM -> undefined
-        Compile outfile -> undefined
+        _ -> 
+          case checkProgram ast of
+          Left err -> putStrLn err
+          Right sast -> 
+            case action of
+            Sast -> print sast
+            LLVM -> T.putStrLn . ppllvm $ codegenProgram sast
+            Compile outfile -> undefined
 
-llvmTest :: IO ()
-llvmTest = let body [a, b] = L.add a b >>= L.ret in
-   T.putStrLn $ ppllvm $ L.buildModule "microC" $
-   L.function "main" [(AST.i32, "a"), (AST.i32, "b")] AST.i32 body
+testInput :: Action -> String -> IO ()
+testInput a input = go input where
+  go input = case runParser programP "STDIN" input of
+    Left err -> print err
+    Right ast ->
+      case a of 
+        Ast -> print ast
+        _ -> 
+          case checkProgram ast of
+            Left err -> print err
+            Right sast -> 
+              case a of
+                Sast -> print sast
+                LLVM -> T.putStrLn . ppllvm $ codegenProgram sast
+                Compile outfile -> undefined
+      
 
 
 test :: Action -> IO ()

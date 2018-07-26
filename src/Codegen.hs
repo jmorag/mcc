@@ -101,7 +101,9 @@ codegenStatement :: (MonadState Env m, L.MonadIRBuilder m) => SStatement -> m ()
 codegenStatement (SExpr e) = codegenSexpr e >> return ()
 codegenStatement (SReturn e) = codegenSexpr e >>= L.ret
 
-codegenStatement s = error $ "Blocks, if, for, and while WIP"
+codegenStatement (SBlock ss) = mapM_ codegenStatement ss
+
+codegenStatement _ = error $ "If, for, and while WIP"
 
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = do
@@ -112,7 +114,7 @@ codegenFunc f = do
       body params = do
         _entry <- L.block `L.named` "entry"
         env <- get
-        forM args $ \(t, n) -> do
+        _ <- forM args $ \(t, n) -> do
           addr <- L.alloca t Nothing 0
           L.store addr 0 (AST.LocalReference t (fromString $ show n))
           modify $ M.insert (show n) addr
@@ -133,3 +135,7 @@ emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
         fun <- L.extern fname paramTypes retType
         modify $ M.insert (name f) fun
 
+codegenProgram :: SProgram -> AST.Module
+codegenProgram (globals, funcs) = flip evalState M.empty $ L.buildModuleT "microc" $ do
+  emitBuiltIns 
+  mapM_ codegenFunc funcs
