@@ -29,7 +29,7 @@ import qualified LLVM.IRBuilder.Monad as L
 import qualified LLVM.IRBuilder.Instruction as L
 
 data Action = Ast | Sast | LLVM | Compile FilePath
-data Options = Options Action FilePath
+data Options = Options { action :: Action, infile :: FilePath, llc :: FilePath }
 
 actionP :: Parser Action
 actionP = flag' Ast (long "ast" <> short 'a')
@@ -41,7 +41,10 @@ actionP = flag' Ast (long "ast" <> short 'a')
   <|> Compile <$> strOption (short 'o' <> value "a.out")
               
 optionsP :: Parser Options
-optionsP = Options <$> actionP <*> strArgument (help "input file" <> metavar "FILE")
+optionsP = Options 
+  <$> actionP 
+  <*> strArgument (help "input file" <> metavar "FILE")
+  <*> strOption (long "llc" <> value "/usr/local/opt/llvm/bin/llc")
               
 main :: IO ()
 main = run =<< execParser (optionsP `withInfo` "Compile stuff")
@@ -49,7 +52,7 @@ main = run =<< execParser (optionsP `withInfo` "Compile stuff")
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
 run :: Options -> IO ()
-run (Options action infile) = do
+run (Options action infile llc) = do
   program <- readFile infile
   let parseTree = runParser programP infile program
   case parseTree of
