@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
+-- {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+-- {-# LANGUAGE StandaloneDeriving #-}
 module Codegen where
 
 import qualified LLVM.AST.IntegerPredicate as IP
@@ -98,12 +98,12 @@ codegenSexpr sx =
   error $ "Internal error - semant failed. Invalid sexpr " ++ show sx
 
 codegenStatement :: (MonadState Env m, L.MonadIRBuilder m) => SStatement -> m ()
-codegenStatement (SExpr e) = codegenSexpr e >> return ()
+codegenStatement (SExpr e) = void $ codegenSexpr e
 codegenStatement (SReturn e) = codegenSexpr e >>= L.ret
 
 codegenStatement (SBlock ss) = mapM_ codegenStatement ss
 
-codegenStatement _ = error $ "If, for, and while WIP"
+codegenStatement _ = error "If, for, and while WIP"
 
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = do
@@ -114,7 +114,7 @@ codegenFunc f = do
       body params = do
         _entry <- L.block `L.named` "entry"
         env <- get
-        _ <- forM args $ \(t, n) -> do
+        forM_ args $ \(t, n) -> do
           addr <- L.alloca t Nothing 0
           L.store addr 0 (AST.LocalReference t (fromString $ show n))
           modify $ M.insert (show n) addr
