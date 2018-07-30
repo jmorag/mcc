@@ -28,5 +28,5 @@ executable mcc
                        containers,
                        text,
                        llvm-hs-pure >= 6.1 && < 7,
-                       llvm-hs-pretty
-                       --llvm-hs >= 6.1.1 && < 7
+                       llvm-hs-pretty,
+                       turtle >= 0.5 && < 1.6
