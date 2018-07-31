@@ -56,7 +56,7 @@ main = run =<< execParser (optionsP `withInfo` "Compile stuff")
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
 run :: Options -> IO ()
-run (Options action infile llc) = do
+run (Options action infile llc) = withCurrentDirectory "/." $ do
   program <- readFile . show $ infile
   let parseTree = runParser programP (show infile) program
   case parseTree of
@@ -72,11 +72,12 @@ run (Options action infile llc) = do
             Sast -> print sast
             LLVM -> T.putStrLn . ppllvm $ codegenProgram sast
             Compile outfile -> do
-              let llvm = ppllvm $ codegenProgram sast
-              llcPath <- fromMaybe llc <$> which "llc"
-              _ <- shell (T.pack . show $ llcPath) empty
-              return ()
-              
+              let llvm = T.pack . show . ppllvm $ codegenProgram sast
+              llcPath <- T.pack . show . fromMaybe llc <$> which "llc"
+              void $ shell (llcPath <> " -o temp.s") (select $ textToLines llvm)
+              void $ shell "clang -c src/runtime.c -o runtime.o" empty
+              void $ shell ("clang -lm temp.s runtime.o -o " <> (T.pack . show $ outfile)) empty
+              void $ shell "rm temp.s runtime.o" empty
             Ast -> error "unreachable"
 
 -- testInput :: Action -> String -> IO ()
