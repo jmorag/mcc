@@ -8,27 +8,16 @@ import Semant
 import Codegen
 
 import Prelude hiding (FilePath)
-import Data.List (isSuffixOf)
 import Text.Megaparsec (runParser, parseTest')
-import System.Directory
-import Control.Monad
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Data.Maybe (fromMaybe)
 
-import qualified Data.Text.Lazy.IO as T
+import qualified Data.Text.IO as T
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 
 import LLVM.Pretty
-import qualified LLVM.AST as AST
-import qualified LLVM.AST.Type as AST
-import qualified LLVM.AST.Global as Global
-import qualified LLVM.AST.Float as F
-import qualified LLVM.AST.Constant as C
-
-import qualified LLVM.IRBuilder.Module as L
-import qualified LLVM.IRBuilder.Monad as L
-import qualified LLVM.IRBuilder.Instruction as L
 
 import Turtle
 
@@ -56,8 +45,8 @@ main = run =<< execParser (optionsP `withInfo` "Compile stuff")
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
 run :: Options -> IO ()
-run (Options action infile llc) = withCurrentDirectory "/." $ do
-  program <- readFile . show $ infile
+run (Options action infile llc) = do 
+  program <- T.unpack <$> readTextFile infile
   let parseTree = runParser programP (show infile) program
   case parseTree of
     Left _ -> parseTest' programP program
@@ -70,66 +59,26 @@ run (Options action infile llc) = withCurrentDirectory "/." $ do
           Right sast -> 
             case action of
             Sast -> print sast
-            LLVM -> T.putStrLn . ppllvm $ codegenProgram sast
+            LLVM -> putStrLn . TL.unpack . ppllvm $ codegenProgram sast
             Compile outfile -> do
-              let llvm = T.pack . show . ppllvm $ codegenProgram sast
-              llcPath <- T.pack . show . fromMaybe llc <$> which "llc"
-              void $ shell (llcPath <> " -o temp.s") (select $ textToLines llvm)
-              void $ shell "clang -c src/runtime.c -o runtime.o" empty
-              void $ shell ("clang -lm temp.s runtime.o -o " <> (T.pack . show $ outfile)) empty
-              void $ shell "rm temp.s runtime.o" empty
+              let llvm = T.pack . TL.unpack . ppllvm $ codegenProgram sast
+              sh $ compile llc llvm outfile
             Ast -> error "unreachable"
 
--- testInput :: Action -> String -> IO ()
--- testInput a input = go input where
---   go input = case runParser programP "STDIN" input of
---     Left err -> print err
---     Right ast ->
---       case a of 
---         Ast -> print ast
---         _ -> 
---           case checkProgram ast of
---             Left err -> print err
---             Right sast -> 
---               case a of
---                 Sast -> print sast
---                 LLVM -> T.putStrLn . ppllvm $ codegenProgram sast
---                 Compile outfile -> undefined
-      
-
-
--- test :: Action -> IO ()
--- test action = do
---   passing <- filter (isSuffixOf ".mc") <$> listDirectory "tests/pass"
---   forM_ passing $ \infile -> withCurrentDirectory "tests/pass" $ do
---     program <- readFile infile
---     let parseTree = runParser programP infile program
---     case parseTree of
---       Left _ -> parseTest' programP program
---       Right ast ->
---         case action of 
---           Ast -> return ()
---           Sast -> case checkProgram ast of
---                     Left err -> do putStrLn program 
---                                    putStrLn err 
---                                    putStrLn (replicate 150 '-')
---                     Right sast -> return ()
---           LLVM -> undefined
---           Compile outfile -> undefined
---   failing <- filter (isSuffixOf ".mc") <$> listDirectory "tests/fail"
---   forM_ failing $ \infile -> withCurrentDirectory "tests/fail" $ do
---     program <- readFile infile
---     let parseTree = runParser programP infile program
---     case parseTree of
---       Left _ -> parseTest' programP program
---       Right ast ->
---         case action of 
---           Ast -> return ()
---           Sast -> case checkProgram ast of
---                     Left err -> return ()
---                     Right sast -> do putStrLn program
---                                      print sast
---                                      putStrLn (replicate 150 '-')
---           LLVM -> undefined
---           Compile outfile -> undefined
-
+compile :: FilePath -> Text -> FilePath -> Shell ()
+compile llc llvm outfile = do
+  currentDir <- pwd
+  buildDir <- mktempdir currentDir "_build"
+  bitcode <- mktempfile buildDir "output.ll"
+  liftIO $ writeTextFile bitcode llvm
+  let encodeText = T.pack . encodeString
+      runtimeCmd = "clang -c src/runtime.c -o " <> 
+                   encodeText buildDir <> "/runtime.o"
+      llcCmd  = encodeText llc <> " " <> 
+                encodeText (buildDir </> bitcode) <> " -o " <> 
+                encodeText buildDir <> "/output.s"
+      linkCmd = "clang " <> encodeText buildDir <> "/output.s " <> 
+                encodeText buildDir <> "/runtime.o -o " <> encodeText outfile
+  void $ shells runtimeCmd empty
+  void $ shells llcCmd empty
+  void $ shells linkCmd empty
