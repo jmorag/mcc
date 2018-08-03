@@ -22,15 +22,9 @@ library
   build-depends:       base >= 4.7 && < 5,
                        megaparsec >= 6.4.1,
                        mtl >= 2.2,
-                       -- recursion-schemes >= 5.0.2,
-                       -- optparse-applicative,
                        containers,
                        text,
                        llvm-hs-pure >= 6.1 && < 7
-                       -- llvm-hs >= 6.1 && < 7,
-                       -- llvm-hs-pretty,
-                       -- turtle >= 0.5 && < 1.6
-
 
 executable mcc
   hs-source-dirs:      app
@@ -41,11 +35,10 @@ executable mcc
                        mcc,
                        megaparsec >= 6.4.1,
                        mtl >= 2.2,
-                       -- recursion-schemes >= 5.0.2,
                        optparse-applicative,
                        containers,
                        text,
                        llvm-hs-pure >= 6.1 && < 7,
-                       -- llvm-hs >= 6.1 && < 7,
+                       llvm-hs >= 6.1 && < 7,
                        llvm-hs-pretty,
                        turtle >= 0.5 && < 1.6
