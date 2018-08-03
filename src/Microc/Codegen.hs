@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE GeneralizedNewtypeDeriving #-}
--- {-# LANGUAGE StandaloneDeriving #-}
 module Microc.Codegen (codegenProgram) where
 
 import qualified LLVM.AST.IntegerPredicate as IP
