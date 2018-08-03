@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 -- {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- {-# LANGUAGE StandaloneDeriving #-}
-module Codegen where
+module Microc.Codegen (codegenProgram) where
 
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.FloatingPointPredicate as FP
@@ -26,9 +26,9 @@ import Control.Monad.State
 import Control.Monad.Identity
 import Data.String (fromString)
 
-import qualified Semant
-import Sast
-import Ast (Type(..), Op(..), Uop(..), Function(..))
+import qualified Microc.Semant as Semant
+import Microc.Sast
+import Microc.Ast (Type(..), Op(..), Uop(..), Function(..))
 
 -- When using the IRBuilder, both functions and variables have the type Operand
 type Env = M.Map String AST.Operand

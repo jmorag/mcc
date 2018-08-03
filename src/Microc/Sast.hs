@@ -1,6 +1,6 @@
-module Sast where
+module Microc.Sast where
 
-import Ast
+import Microc.Ast
 
 type SExpr = (Type, SExpr')
 data SExpr' = 

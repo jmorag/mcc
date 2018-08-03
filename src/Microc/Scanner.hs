@@ -1,4 +1,4 @@
-module Scanner (Parser,
+module Microc.Scanner (Parser,
                 sc, 
                 symbol, 
                 parens, 

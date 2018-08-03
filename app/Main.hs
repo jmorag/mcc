@@ -1,14 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Parser
-import Ast
-import Sast
-import Semant
-import Codegen
+import Microc hiding (Parser)
 
 import Prelude hiding (FilePath)
-import Text.Megaparsec (runParser, parseTest')
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Data.Maybe (fromMaybe)
@@ -19,7 +14,7 @@ import qualified Data.Text.Lazy as TL
 
 import LLVM.Pretty
 
-import Turtle
+import Turtle hiding (Parser)
 
 data Action = Ast | Sast | LLVM | Compile FilePath
 data Options = Options { action :: Action, infile :: FilePath, llc :: FilePath }

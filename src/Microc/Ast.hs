@@ -1,4 +1,4 @@
-module Ast where
+module Microc.Ast where
 
 data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or deriving (Show, Eq)
