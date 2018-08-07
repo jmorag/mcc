@@ -1,13 +1,14 @@
-module Semant where
+module Microc.Semant (checkProgram, builtIns) where
 
-import Ast
-import Sast
+import Microc.Ast
+import Microc.Sast
 import qualified Data.Map as M
 import Data.Tuple (swap)
 import Control.Monad.State
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Monad.Except
+import Data.Maybe (isNothing)
 
 type Vars = M.Map String Type
 type Funcs = M.Map String Function
@@ -24,7 +25,7 @@ guardInfo :: MonadError e m => Bool -> e -> m a -> m a
 guardInfo cond msg rest = if not cond then throwError msg else rest
 
 checkBinds :: String -> [Bind] -> [Bind]
-checkBinds kind binds = go M.empty binds
+checkBinds kind = go M.empty
   where
     go checked [] = map (\(name, typ) -> (typ, name)) (M.toList checked)
     go checked (b:bs) = case b of 
@@ -128,14 +129,14 @@ checkStatement stmt = case stmt of
     e@(ty, _) <- checkExpr expr
     fun <- gets thisFunc
     guardInfo (ty == typ fun) 
-      "Type of return expression inconsistent with declared type" $ do
+      "Type of return expression inconsistent with declared type" $
         return $ SReturn e
 
   Block sl -> case sl of
     -- unsure is this first case is necessary...
     [s@(Return _)] -> do s' <- checkStatement s; return $ SBlock [s']
     -------------------------
-    (Return _) : _ -> throwError $ "nothing can follow a return: error in " ++ show stmt
+    Return _ : _ -> throwError $ "nothing can follow a return: error in " ++ show stmt
     Block sl : ss -> checkStatement $ Block (sl ++ ss)
     _ -> SBlock <$> mapM checkStatement sl
 
@@ -144,8 +145,8 @@ checkFunction :: Function -> SemantS SFunction
 checkFunction func = do
   -- add the fname to the table and check for conflicts
   funcs <- gets funcs
-  guardInfo (M.lookup (name func) funcs == Nothing) 
-            ("Redeclaration of function " ++ name func) $ do
+  guardInfo (isNothing $ M.lookup (name func) funcs) 
+            ("Redeclaration of function " ++ name func) $
     -- add this func to symbol table
     modify $ \env -> 
       env { funcs = M.insert (name func) func funcs, thisFunc = func }
@@ -155,7 +156,7 @@ checkFunction func = do
   let locals'  = checkBinds "local"  (locals func)
   -- create local variable table
   globals <- gets vars
-  let allVars = M.toList globals ++ (map swap (formals' ++ locals'))
+  let allVars = M.toList globals ++ map swap (formals' ++ locals')
       localVars = M.fromList allVars
 
   -- Overwrite local variables into the environment for the body checking
