@@ -45,6 +45,17 @@ executable mcc
                        containers,
                        text,
                        llvm-hs-pure >= 6.1 && < 7,
-                       llvm-hs >= 6.1 && < 7,
+                       -- llvm-hs >= 6.1 && < 7,
                        llvm-hs-pretty,
                        turtle >= 0.5 && < 1.6
+
+test-suite testall
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      tests
+  main-is:             Testall.hs
+  default-language:    Haskell2010
+  ghc-options:         -Wall -fno-warn-name-shadowing -fno-warn-unused-imports -fno-warn-unused-matches
+  build-depends:       base >= 4.7 && < 5,
+                       mcc,
+                       turtle >= 0.5 && < 1.6,
+                       hspec
