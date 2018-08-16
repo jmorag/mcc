@@ -1,14 +1,5 @@
-module Microc.Scanner (Parser,
-                sc, 
-                symbol, 
-                parens, 
-                brackets, 
-                semi, 
-                comma, 
-                rword, 
-                identifier, 
-                int, 
-                float) where
+{-# LANGUAGE OverloadedStrings #-}
+module Microc.Scanner where
 
 import Control.Monad (void)
 import Data.Void
@@ -16,8 +7,10 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Expr
 import qualified Text.Megaparsec.Char.Lexer as L
+import Data.Text (Text)
+import qualified Data.Text as T
 
-type Parser = Parsec Void String
+type Parser = Parsec Void Text
 
 sc :: Parser ()
 sc = L.space space1 lineCmnt blockCmnt
@@ -28,7 +21,7 @@ sc = L.space space1 lineCmnt blockCmnt
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
-symbol :: String -> Parser String
+symbol :: Text -> Parser Text
 symbol = L.symbol sc
 
 parens :: Parser a -> Parser a
@@ -37,25 +30,25 @@ parens = between (symbol "(") (symbol ")")
 brackets :: Parser a -> Parser a
 brackets = between (symbol "{") (symbol "}") 
 
-semi :: Parser String
+semi :: Parser Text
 semi = symbol ";"
 
-comma :: Parser String
+comma :: Parser Text
 comma = symbol ","
 
-rword :: String -> Parser ()
+rword :: Text -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
 
-rws :: [String] -- list of reserved words
+rws :: [Text] -- list of reserved words
 rws = ["if", "then", "else", "while", "true", "false", 
        "for", "int", "bool", "float", "void", "return"]
 
-identifier :: Parser String
+identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)
   where
-    p       = (:) <$> letterChar <*> many alphaNumChar
+    p       = fmap T.pack $ (:) <$> letterChar <*> many alphaNumChar
     check x = if x `elem` rws
-                then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+                then fail $ "keyword " <> show x <> " cannot be an identifier"
                 else return x
 
 int :: Parser Int

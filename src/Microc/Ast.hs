@@ -1,4 +1,5 @@
 module Microc.Ast where
+import           Data.Text (Text)
 
 data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or deriving (Show, Eq)
@@ -6,17 +7,17 @@ data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 data Uop = Neg | Not deriving (Show, Eq)
 
 data Type = TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
-type Bind = (Type, String)
+type Bind = (Type, Text)
 
 data Expr = 
     Literal Int
   | Fliteral Double
   | BoolLit Bool
-  | Id String
+  | Id Text
   | Binop Op Expr Expr
   | Unop Uop Expr
-  | Assign String Expr
-  | Call String [Expr]
+  | Assign Text Expr
+  | Call Text [Expr]
   | Noexpr
   deriving (Show, Eq)
 
@@ -33,7 +34,7 @@ data Statement =
 
 data Function = Function
   { typ  :: Type
-  , name :: String
+  , name :: Text
   , formals :: [Bind]
   , locals :: [Bind]
   , body :: [Statement]
