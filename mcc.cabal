@@ -68,4 +68,6 @@ test-suite testall
   ghc-options:         -Wall -fno-warn-name-shadowing -fno-warn-unused-imports -fno-warn-unused-matches -threaded
   build-depends:       base >= 4.7 && < 5,
                        mcc,
-                       hspec
+                       tasty,
+                       tasty-golden,
+                       filepath
