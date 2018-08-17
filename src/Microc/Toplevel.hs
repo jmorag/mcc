@@ -36,15 +36,28 @@ compile llvmModule outfile = do
     -- generate the runtime object file
     call        "clang"    ["-c", "../src/runtime.c", "-o", runtime]
     -- link the runtime with the assembly
-    call        "clang"    [runtime, assembly, "-o", "../" <> outfile]
+    call        "clang"    [assembly, runtime, "-o", "../" <> outfile]
   -- clean up the build directory
   removeDirectoryRecursive buildDir
 
--- | Call a command and print out it's stdout and stderr
+-- | Call a command and print diagnostic information if it does anything interesting
 call :: FilePath -> [String] -> IO ()
 call command args = do
   (_, Just stdOut, Just stdErr, _) <- createProcess (proc command args)
     { std_out = CreatePipe
     , std_err = CreatePipe
     }
-  T.putStrLn $ T.intercalate " " ([">", cs command] ++ map cs args)
+  out <- T.hGetContents stdOut
+  err <- T.hGetContents stdErr
+  if T.null out && T.null err then return () else do
+    T.putStrLn . T.unwords $ [">", cs command] ++ map cs args
+    T.putStrLn out
+    T.putStrLn err
+
+run :: Module -> IO ()
+run llvmModule = do
+  (temp, _) <- mkstemps "a" ".out"
+  compile llvmModule temp
+  (_, Just result, _, _) <- createProcess (shell ("./" <> temp)) { std_out = CreatePipe }
+  T.hGetContents result >>= T.putStr
+  removeFile temp

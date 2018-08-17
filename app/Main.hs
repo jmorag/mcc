@@ -14,17 +14,17 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Text (Text)
 
-data Action = Ast | Sast | LLVM | Compile FilePath
+data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath, llc :: FilePath }
 
 actionP :: Parser Action
 actionP = flag' Ast (long "ast" <> short 'a')
   <|> flag' Sast (long "sast" <> short 's')
   <|> flag' LLVM (long "llvm" <> short 'l')
-  -- Compile is default, so in the absence of a flag, return this
-  <|> Compile <$> strOption (short 'o' <> value "a.out")
   <|> flag' Compile (long "compile" <> short 'c') 
             <*> strOption (short 'o' <> value "a.out")
+  -- running the file to see the expected output is default
+  <|> pure Run
               
 optionsP :: Parser Options
 optionsP = Options 
@@ -33,12 +33,12 @@ optionsP = Options
   <*> strOption (long "llc" <> value "/usr/local/opt/llvm/bin/llc")
               
 main :: IO ()
-main = run =<< execParser (optionsP `withInfo` "Compile stuff")
+main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
   where
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
-run :: Options -> IO ()
-run (Options action infile llc) = do 
+runOpts :: Options -> IO ()
+runOpts (Options action infile llc) = do 
   program <- T.readFile infile
   let parseTree = runParser programP (show infile) program
   case parseTree of
@@ -56,4 +56,5 @@ run (Options action infile llc) = do
             Compile outfile -> do
               let llvm = codegenProgram sast
               compile llvm outfile
+            Run -> run (codegenProgram sast)
             Ast -> error "unreachable"
