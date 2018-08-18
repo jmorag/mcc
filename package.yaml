@@ -11,22 +11,21 @@ ghc-options: -Wall
              -fno-warn-unused-matches
              -Wcompat
              -Wincomplete-uni-patterns
-             -threaded
 extra-source-files: README.md
 
 dependencies:
-  - base >= 4.7 && < 5
-  - megaparsec >= 6.4.1 && < 7
-  - mtl >= 2.2 && <= 3
-  - containers
-  - text
-  - llvm-hs-pure >= 6.1 && < 7
-  - llvm-hs-pretty
-  - string-conversions
-  - directory
-  - process
-  - unix
-  - filepath
+    - base >= 4.7 && < 5
+    - megaparsec >= 6.4.1 && < 7
+    - mtl >= 2.2 && <= 3
+    - containers
+    - text
+    - llvm-hs-pure >= 6.1 && < 7
+    - llvm-hs-pretty
+    - string-conversions
+    - directory
+    - process
+    - unix
+    - filepath
 
 default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
 
@@ -36,9 +35,18 @@ library:
 executable:
   main: Main.hs
   source-dirs: app
-  dependencies: optparse-applicative
+  ghc-options: -threaded
+  dependencies: 
+      - optparse-applicative
+      - mcc
 
 tests:
   spec:
     main: Testall.hs
     source-dirs: tests
+    ghc-options: -threaded
+    dependencies:
+        - tasty
+        - tasty-golden
+        - silently
+        - mcc
