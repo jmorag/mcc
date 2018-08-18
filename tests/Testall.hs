@@ -32,12 +32,22 @@ runFile infile = do
     redirect action = cs <$> capture_ action
 
 main :: IO ()
-main = defaultMain =<< goldenTests
+main = do 
+  defaultMain =<< passingTests
+  defaultMain =<< failingTests
 
-goldenTests :: IO TestTree
-goldenTests = do
-  mcFiles <- findByExtension [".mc"] "."
-  return $ testGroup "microc golden tests"
+
+passingTests :: IO TestTree
+passingTests = do
+  mcFiles <- findByExtension [".mc"] "pass"
+  return $ testGroup "microc passing tests"
     [ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
       | mcFile <- mcFiles, let outFile = replaceExtension mcFile ".out" ]
+
+failingTests :: IO TestTree
+failingTests = do
+  mcFiles <- findByExtension [".mc"] "fail"
+  return $ testGroup "microc tests"
+    [ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
+      | mcFile <- mcFiles, let outFile = replaceExtension mcFile ".err" ]
 
