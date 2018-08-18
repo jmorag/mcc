@@ -70,4 +70,5 @@ test-suite testall
                        mcc,
                        tasty,
                        tasty-golden,
-                       filepath
+                       filepath,
+                       silently
