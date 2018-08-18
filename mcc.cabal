@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0e931ba6188ed409f67ebb7184cee155486ac492d2fba0e2c70de790ce60260a
+-- hash: 75c462cd97f9766a4a2f710b99f921a89acee8d2acf9f5f4e76778a0bf27e6f8
 
 name:           mcc
 version:        0.1.0.0
@@ -88,6 +88,7 @@ test-suite spec
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-imports -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
     , directory
     , filepath
