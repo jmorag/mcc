@@ -1,0 +1,44 @@
+name: mcc
+version: 0.1.0.0
+github: jmorag/mcc
+synopsis: A microc compiler in Haskell
+author: "Joseph Morag"
+license-file: LICENSE
+category: Compilers/Interpreters
+ghc-options: -Wall 
+             -fno-warn-name-shadowing 
+             -fno-warn-unused-imports 
+             -fno-warn-unused-matches
+             -Wcompat
+             -Wincomplete-uni-patterns
+             -threaded
+extra-source-files: README.md
+
+dependencies:
+  - base >= 4.7 && < 5
+  - megaparsec >= 6.4.1 && < 7
+  - mtl >= 2.2 && <= 3
+  - containers
+  - text
+  - llvm-hs-pure >= 6.1 && < 7
+  - llvm-hs-pretty
+  - string-conversions
+  - directory
+  - process
+  - unix
+  - filepath
+
+default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
+
+library:
+  source-dirs: src
+
+executable:
+  main: Main.hs
+  source-dirs: app
+  dependencies: optparse-applicative
+
+tests:
+  spec:
+    main: Testall.hs
+    source-dirs: tests
