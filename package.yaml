@@ -49,4 +49,3 @@ tests:
         - tasty-golden
         - silently
         - mcc
-        - bytestring
