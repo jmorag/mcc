@@ -1,4 +1,4 @@
-module Testall where
+module Main where
 
 import Test.Tasty (defaultMain, TestTree, testGroup)
 import Test.Tasty.Golden
@@ -7,17 +7,14 @@ import System.FilePath (takeBaseName, replaceExtension)
 import Microc
 
 import           Data.String.Conversions
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           Data.Text (Text)
-
-import qualified Data.ByteString.Lazy as LBS
+import           Data.ByteString.Lazy (ByteString)
 
 import System.IO.Silently
 
 -- | Given a microc file, attempt to compile and execute it and write the
 -- results to a new file to be compared with what should be the correct output
-runFile :: FilePath -> IO LBS.ByteString
+runFile :: FilePath -> IO ByteString
 runFile infile = do
   program <- T.readFile infile
   let parseTree = runParser programP (show infile) program
@@ -32,22 +29,15 @@ runFile infile = do
     redirect action = cs <$> capture_ action
 
 main :: IO ()
-main = do 
-  defaultMain =<< passingTests
-  defaultMain =<< failingTests
+main = defaultMain =<< goldenTests
 
-
-passingTests :: IO TestTree
-passingTests = do
-  mcFiles <- findByExtension [".mc"] "pass"
-  return $ testGroup "microc passing tests"
+goldenTests :: IO TestTree
+goldenTests = do
+  passingFiles <- findByExtension [".mc"] "tests/pass"
+  failingFiles <- findByExtension [".mc"] "tests/fail"
+  return $ testGroup "microc compiler output tests"
+    ([ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
+      | mcFile <- passingFiles, let outFile = replaceExtension mcFile ".out" ]
+      ++
     [ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
-      | mcFile <- mcFiles, let outFile = replaceExtension mcFile ".out" ]
-
-failingTests :: IO TestTree
-failingTests = do
-  mcFiles <- findByExtension [".mc"] "fail"
-  return $ testGroup "microc tests"
-    [ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
-      | mcFile <- mcFiles, let outFile = replaceExtension mcFile ".err" ]
-
+      | mcFile <- failingFiles, let outFile = replaceExtension mcFile ".err" ])

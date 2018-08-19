@@ -19,26 +19,30 @@ import System.Exit
 import System.Directory
 import System.Process
 import System.Posix.Temp
+import System.FilePath
+
+import Control.Exception (bracket)
+
+projectRoot :: FilePath
+projectRoot = "/Users/josephmorag/Code/mcc/"
 
 -- | Generate an executable at the given filepath from an llvm module
 compile :: Module -> FilePath -> IO ()
-compile llvmModule outfile = do
-  buildDir <- mkdtemp "_build"
-  withCurrentDirectory buildDir $ do
-    -- create temporary files for "output.ll", "output.s", and "runtime.o"
-    (llvm    , llvmHandle) <- mkstemps "output" ".ll"
-    (assembly, _         ) <- mkstemps "output" ".s"
-    (runtime , _         ) <- mkstemps "runtime" ".o"
-    -- write the llvmModule to a file
-    T.hPutStrLn llvmHandle (cs $ ppllvm llvmModule) >> hClose llvmHandle
-    -- call the llc executable on the llvm to turn it into assembly
-    call        "llc"      [llvm, "-o", assembly]
-    -- generate the runtime object file
-    call        "clang"    ["-c", "../src/runtime.c", "-o", runtime]
-    -- link the runtime with the assembly
-    call        "clang"    [assembly, runtime, "-o", "../" <> outfile]
-  -- clean up the build directory
-  removeDirectoryRecursive buildDir
+compile llvmModule outfile =
+  bracket (mkdtemp "build") removeDirectoryRecursive $ \buildDir ->
+    withCurrentDirectory buildDir $ do
+      -- create temporary files for "output.ll", "output.s", and "runtime.o"
+      (llvm, llvmHandle) <- mkstemps "output" ".ll"
+      assembly           <- fst <$> mkstemps "output" ".s"
+      runtime            <- fst <$> mkstemps "runtime" ".o"
+      -- write the llvmModule to a file
+      T.hPutStrLn llvmHandle (cs $ ppllvm llvmModule) >> hClose llvmHandle
+      -- call the llc executable on the llvm to turn it into assembly
+      call        "llc"      [llvm, "-o", assembly]
+      -- generate the runtime object file
+      call        "clang"    ["-c", "../src/runtime.c", "-o", runtime]
+      -- link the runtime with the assembly
+      call        "clang"    [assembly, runtime, "-o", "../" <> outfile]
 
 -- | Call a command and print diagnostic information if it does anything interesting
 call :: FilePath -> [String] -> IO ()
@@ -55,9 +59,8 @@ call command args = do
     T.putStrLn err
 
 run :: Module -> IO ()
-run llvmModule = do
-  (temp, _) <- mkstemps "a" ".out"
+run llvmModule = bracket (fst <$> mkstemps "a" ".out") removeFile $ \temp -> do
   compile llvmModule temp
-  (_, Just result, _, _) <- createProcess (shell ("./" <> temp)) { std_out = CreatePipe }
+  (_, Just result, _, _) <- createProcess (shell ("./" <> temp))
+    { std_out = CreatePipe }
   T.hGetContents result >>= T.putStr
-  removeFile temp

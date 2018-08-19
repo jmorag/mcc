@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 75c462cd97f9766a4a2f710b99f921a89acee8d2acf9f5f4e76778a0bf27e6f8
+-- hash: b20ab10462eeb46f98c9b159d35d0294c85d21916a385de5183df19080d76ea9
 
 name:           mcc
 version:        0.1.0.0
@@ -36,7 +36,7 @@ library
   hs-source-dirs:
       src
   default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-imports -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , containers
@@ -59,7 +59,7 @@ executable mcc
   hs-source-dirs:
       app
   default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-imports -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
   build-depends:
       base >=4.7 && <5
     , containers
@@ -85,7 +85,7 @@ test-suite spec
   hs-source-dirs:
       tests
   default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-imports -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
   build-depends:
       base >=4.7 && <5
     , bytestring
