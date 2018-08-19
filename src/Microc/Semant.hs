@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Microc.Semant (checkProgram, builtIns) where
 
 import Microc.Ast
@@ -9,30 +11,32 @@ import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Monad.Except
 import Data.Maybe (isNothing)
+import           Data.Text (Text)
+import qualified Data.Text as T
 
-type Vars = M.Map String Type
-type Funcs = M.Map String Function
+type Vars = M.Map Text Type
+type Funcs = M.Map Text Function
 data Env = Env { vars :: Vars, funcs :: Funcs, thisFunc :: Function }
 
--- Type of semantic checker computations that can only read from the environment
-type SemantR = ExceptT String (Reader Env)
--- Type of semantic checker computations that can only write to the environment
-type SemantW = ExceptT String (Writer Env)
+-- -- Type of semantic checker computations that can only read from the environment
+-- type SemantR = ExceptT String (Reader Env)
+-- -- Type of semantic checker computations that can only write to the environment
+-- type SemantW = ExceptT String (Writer Env)
 -- Type of semanctic checker computations that have unrestricted env access
-type SemantS = ExceptT String (State Env)
+type SemantS = ExceptT Text (State Env)
 
-guardInfo :: MonadError e m => Bool -> e -> m a -> m a
+guardInfo :: MonadError Text m => Bool -> Text -> m a -> m a
 guardInfo cond msg rest = if not cond then throwError msg else rest
 
-checkBinds :: String -> [Bind] -> [Bind]
+checkBinds :: Text -> [Bind] -> [Bind]
 checkBinds kind = go M.empty
   where
     go checked [] = map (\(name, typ) -> (typ, name)) (M.toList checked)
     go checked (b:bs) = case b of 
-      (TyVoid, _) -> error $ "Illegal void binding " ++ kind ++ " " ++ snd b
+      (TyVoid, _) -> error . T.unpack $ "Illegal void binding " <> kind <> " " <> snd b
       _ -> case M.lookup (snd b) checked of
         Nothing -> go (M.insert (snd b) (fst b) checked) bs
-        Just _ -> error $ "Illegal duplicate binding " ++ kind ++ " " ++ snd b
+        Just _ -> error . T.unpack $ "Illegal duplicate binding " <> kind <> " " <> snd b
 
 builtIns :: Funcs
 builtIns = M.fromList $ map toFunc
@@ -51,7 +55,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
     vars <- gets vars
     case M.lookup s vars of
       Just ty -> return (ty, SId s)
-      Nothing -> throwError $ "Unbound variable " ++ s
+      Nothing -> throwError $ "Unbound variable " <> s
 
   Binop op lhs rhs -> do
     lhs'@(t1, _) <- checkExpr lhs
@@ -85,7 +89,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
     e'@(ty, _) <- checkExpr e
     vars <- gets vars
     case M.lookup s vars of
-      Nothing -> throwError $ "Unbound variable " ++ s
+      Nothing -> throwError $ "Unbound variable " <> s
       Just ty' -> guardInfo (ty == ty') 
                   "Attempt to assign expression to var of incompatible type" $
                   return (ty, SAssign s e')
@@ -93,11 +97,11 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Call s es -> do
     funcs <- gets funcs
     case M.lookup s funcs of
-      Nothing -> throwError $ "Undefined function " ++ s
+      Nothing -> throwError $ "Undefined function " <> s
       Just f -> do
         es' <- mapM checkExpr es
         guardInfo (map fst es' == map fst (formals f)) 
-                  ("Argument of wrong type in call of " ++ name f) $
+                  ("Argument of wrong type in call of " <> name f) $
                   return (typ f, SCall s es')
         
 checkStatement :: Statement -> SemantS SStatement
@@ -130,15 +134,31 @@ checkStatement stmt = case stmt of
     fun <- gets thisFunc
     guardInfo (ty == typ fun) 
       "Type of return expression inconsistent with declared type" $
-        return $ SReturn e
+      return $ SReturn e
 
-  Block sl -> case sl of
-    -- unsure is this first case is necessary...
-    [s@(Return _)] -> do s' <- checkStatement s; return $ SBlock [s']
-    -------------------------
-    Return _ : _ -> throwError $ "nothing can follow a return: error in " ++ show stmt
-    Block sl : ss -> checkStatement $ Block (sl ++ ss)
-    _ -> SBlock <$> mapM checkStatement sl
+  Block sl -> 
+    let flattened = flatten sl
+    in guardInfo (nothingFollowsRet flattened)
+       ("Nothing can follow a return: error in " <> T.pack (show stmt)) $
+       SBlock <$> mapM checkStatement sl
+    where
+      flatten [] = []
+      flatten (Block s:ss) = flatten (s ++ ss)
+      flatten (s:ss) = s : flatten ss
+
+      nothingFollowsRet [] = True
+      nothingFollowsRet [Return _] = True
+      nothingFollowsRet (s:ss) = 
+        case s of Return _ -> False; _ -> nothingFollowsRet ss
+
+  
+    --case sl of
+    ---- unsure is this first case is necessary...
+    --[s@(Return _)] -> do s' <- checkStatement s; return $ SBlock [s']
+    ---------------------------
+    --Return _ : _ -> throwError $ "nothing can follow a return: error in " <> T.pack (show stmt)
+    --Block sl : ss -> checkStatement $ Block (sl ++ ss)
+    --_ -> SBlock <$> mapM checkStatement sl
 
     
 checkFunction :: Function -> SemantS SFunction    
@@ -146,7 +166,7 @@ checkFunction func = do
   -- add the fname to the table and check for conflicts
   funcs <- gets funcs
   guardInfo (isNothing $ M.lookup (name func) funcs) 
-            ("Redeclaration of function " ++ name func) $
+            ("Redeclaration of function " <> name func) $
     -- add this func to symbol table
     modify $ \env -> 
       env { funcs = M.insert (name func) func funcs, thisFunc = func }
@@ -173,7 +193,7 @@ checkFunction func = do
                      }
 
 
-checkProgram :: Program -> Either String SProgram
+checkProgram :: Program -> Either Text SProgram
 checkProgram (binds, funcs) = 
   evalState (runExceptT (checkProgram' (binds, funcs))) baseEnv
   where

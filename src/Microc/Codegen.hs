@@ -28,8 +28,11 @@ import qualified Microc.Semant as Semant
 import Microc.Sast
 import Microc.Ast (Type(..), Op(..), Uop(..), Function(..))
 
+import qualified Data.Text as T
+import           Data.Text (Text)
+
 -- When using the IRBuilder, both functions and variables have the type Operand
-type Env = M.Map String AST.Operand
+type Env = M.Map Text AST.Operand
 type Codegen = L.IRBuilderT (State Env)
 type LLVM = L.ModuleBuilderT (State Env)
 
@@ -48,7 +51,7 @@ codegenSexpr (ty, SId name) = do
   vars <- get
   case M.lookup name vars of
     Just addr -> L.load addr 0
-    Nothing -> error $ "Internal error - undefined variable name " ++ name 
+    Nothing -> error . T.unpack $ "Internal error - undefined variable name " <> name 
 
 codegenSexpr (TyInt, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
@@ -105,8 +108,8 @@ codegenStatement _ = error "If, for, and while WIP"
 
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = do
-  let name = mkName (sname f)
-      mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (fromString n))
+  let name = mkName (T.unpack $ sname f)
+      mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (fromString . T.unpack $ n))
       args = map mkParam (sformals f)
       retty = ltypeOfTyp (styp f)
       body params = do
@@ -115,7 +118,7 @@ codegenFunc f = do
         forM_ args $ \(t, n) -> do
           addr <- L.alloca t Nothing 0
           L.store addr 0 (AST.LocalReference t (fromString $ show n))
-          modify $ M.insert (show n) addr
+          modify $ M.insert (T.pack . show $ n) addr
           -- also need to do locals later
         mapM_ codegenStatement (sbody f)
   fun <- L.function name args retty body
@@ -126,7 +129,7 @@ emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
   where
     convert = map snd . M.toList
     emitBuiltIn f = 
-      let fname = mkName (name f)
+      let fname = mkName (T.unpack $ name f)
           paramTypes = map (ltypeOfTyp . fst) (formals f)
           retType = ltypeOfTyp (typ f)
       in do

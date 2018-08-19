@@ -3,20 +3,18 @@ module Main where
 
 import Microc hiding (Parser)
 
-import Prelude hiding (FilePath)
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Data.Maybe (fromMaybe)
 
-import qualified Data.Text.IO as T
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
-
 import LLVM.Pretty
 
-import Turtle hiding (Parser)
+import           Data.String.Conversions
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import           Data.Text (Text)
 
-data Action = Ast | Sast | LLVM | Compile FilePath
+data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath, llc :: FilePath }
 
 actionP :: Parser Action
@@ -25,8 +23,8 @@ actionP = flag' Ast (long "ast" <> short 'a')
   <|> flag' LLVM (long "llvm" <> short 'l')
   <|> flag' Compile (long "compile" <> short 'c') 
             <*> strOption (short 'o' <> value "a.out")
-  -- Compile is default, so in the absence of a flag, return this
-  <|> Compile <$> strOption (short 'o' <> value "a.out")
+  -- running the file to see the expected output is default
+  <|> pure Run
               
 optionsP :: Parser Options
 optionsP = Options 
@@ -35,13 +33,13 @@ optionsP = Options
   <*> strOption (long "llc" <> value "/usr/local/opt/llvm/bin/llc")
               
 main :: IO ()
-main = run =<< execParser (optionsP `withInfo` "Compile stuff")
+main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
   where
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
-run :: Options -> IO ()
-run (Options action infile llc) = do 
-  program <- T.unpack <$> readTextFile infile
+runOpts :: Options -> IO ()
+runOpts (Options action infile llc) = do 
+  program <- T.readFile infile
   let parseTree = runParser programP (show infile) program
   case parseTree of
     Left _ -> parseTest' programP program
@@ -50,30 +48,13 @@ run (Options action infile llc) = do
         Ast -> print ast
         _ -> 
           case checkProgram ast of
-          Left err -> putStrLn err
+          Left err -> T.putStrLn err
           Right sast -> 
             case action of
             Sast -> print sast
-            LLVM -> putStrLn . TL.unpack . ppllvm $ codegenProgram sast
+            LLVM -> T.putStrLn . cs . ppllvm $ codegenProgram sast
             Compile outfile -> do
-              let llvm = T.pack . TL.unpack . ppllvm $ codegenProgram sast
-              sh $ compile llc llvm outfile
+              let llvm = codegenProgram sast
+              compile llvm outfile
+            Run -> run (codegenProgram sast)
             Ast -> error "unreachable"
-
-compile :: FilePath -> Text -> FilePath -> Shell ()
-compile llc llvm outfile = do
-  currentDir <- pwd
-  buildDir <- mktempdir currentDir "_build"
-  bitcode <- mktempfile buildDir "output.ll"
-  liftIO $ writeTextFile bitcode llvm
-  let encodeText = T.pack . encodeString
-      runtimeCmd = "clang -c src/runtime.c -o " <> 
-                   encodeText buildDir <> "/runtime.o"
-      llcCmd  = encodeText llc <> " " <> 
-                encodeText (buildDir </> bitcode) <> " -o " <> 
-                encodeText buildDir <> "/output.s"
-      linkCmd = "clang " <> encodeText buildDir <> "/output.s " <> 
-                encodeText buildDir <> "/runtime.o -o " <> encodeText outfile
-  void $ shells runtimeCmd empty
-  void $ shells llcCmd empty
-  void $ shells linkCmd empty

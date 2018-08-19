@@ -1,5 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Microc.Parser (programP, runParser, parseTest') where
 
+import Data.Text (Text)
 import Microc.Ast
 import Microc.Scanner
 import Text.Megaparsec

@@ -1,17 +1,18 @@
 module Microc.Sast where
 
-import Microc.Ast
+import           Microc.Ast
+import           Data.Text (Text)
 
 type SExpr = (Type, SExpr')
 data SExpr' = 
     SLiteral Int
   | SFliteral Double
   | SBoolLit Bool
-  | SId String
+  | SId Text
   | SBinop Op SExpr SExpr
   | SUnop Uop SExpr
-  | SAssign String SExpr
-  | SCall String [SExpr]
+  | SAssign Text SExpr
+  | SCall Text [SExpr]
   | SNoexpr
   deriving (Show, Eq)
 
@@ -26,7 +27,7 @@ data SStatement =
 
 data SFunction = SFunction
   { styp  :: Type
-  , sname :: String
+  , sname :: Text
   , sformals :: [Bind]
   , slocals :: [Bind]
   , sbody :: [SStatement]
