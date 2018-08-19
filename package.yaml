@@ -40,7 +40,7 @@ executable:
       - mcc
 
 tests:
-  spec:
+  testall:
     main: Testall.hs
     source-dirs: tests
     ghc-options: -threaded

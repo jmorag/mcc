@@ -17,14 +17,14 @@ import System.IO.Silently
 runFile :: FilePath -> IO ByteString
 runFile infile = do
   program <- T.readFile infile
-  let parseTree = runParser programP (show infile) program
+  let parseTree = runParser programP (cs infile) program
   case parseTree of
     Left _ -> redirect $ parseTest' programP program
     Right ast -> case checkProgram ast of
-      Left err -> redirect (T.putStrLn err)
+      Left err -> redirect $ T.putStrLn err
       Right sast -> do
         let llvmModule = codegenProgram sast
-        redirect (run llvmModule)
+        redirect $ run llvmModule
   where
     redirect action = cs <$> capture_ action
 
@@ -35,9 +35,9 @@ goldenTests :: IO TestTree
 goldenTests = do
   passingFiles <- findByExtension [".mc"] "tests/pass"
   failingFiles <- findByExtension [".mc"] "tests/fail"
-  return $ testGroup "microc compiler output tests"
-    ([ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
+  return $ testGroup "microc compiler output tests" $
+    [ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
       | mcFile <- passingFiles, let outFile = replaceExtension mcFile ".out" ]
       ++
     [ goldenVsString (takeBaseName mcFile) outFile (runFile mcFile) 
-      | mcFile <- failingFiles, let outFile = replaceExtension mcFile ".err" ])
+      | mcFile <- failingFiles, let outFile = replaceExtension mcFile ".err" ]
