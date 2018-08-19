@@ -1,30 +1,18 @@
 module Microc.Toplevel where
 
-import Microc.Ast
-import Microc.Sast
-import Microc.Parser
-import Microc.Semant
-import Microc.Codegen
-
 import LLVM.AST
 import LLVM.Pretty
 
 import           Data.String.Conversions
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           Data.Text (Text)
 
 import System.IO
-import System.Exit
 import System.Directory
 import System.Process
 import System.Posix.Temp
-import System.FilePath
 
 import Control.Exception (bracket)
-
-projectRoot :: FilePath
-projectRoot = "/Users/josephmorag/Code/mcc/"
 
 -- | Generate an executable at the given filepath from an llvm module
 compile :: Module -> FilePath -> IO ()
