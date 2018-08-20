@@ -1,41 +1,41 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+-- These extensions necessary to convert to and from ShortByteString, which 
+-- the LLVM bindings use internally for variable names
 module Microc.Codegen (codegenProgram) where
 
 import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST as AST
-import qualified LLVM.AST.Operand as AST
 import qualified LLVM.AST.Type as AST
-import qualified LLVM.AST.Typed as AST
 import LLVM.AST.Name
 
 import qualified LLVM.IRBuilder.Module as L
 import qualified LLVM.IRBuilder.Monad as L
-import LLVM.IRBuilder.Monad (IRBuilderT)
-import LLVM.IRBuilder.Module (liftModuleState, MonadModuleBuilder)
-import LLVM.IRBuilder.Internal.SnocList
 import qualified LLVM.IRBuilder.Instruction as L
 import qualified LLVM.IRBuilder.Constant as L
+import LLVM.Prelude (ShortByteString)
 
 import qualified Data.Map as M
 import Control.Monad.State
-import Control.Monad.Identity
 import Data.String (fromString)
 
 import qualified Microc.Semant as Semant
 import Microc.Sast
 import Microc.Ast (Type(..), Op(..), Uop(..), Function(..))
 
+import           Data.String.Conversions
 import qualified Data.Text as T
 import           Data.Text (Text)
 
+import Debug.Trace
+
 -- When using the IRBuilder, both functions and variables have the type Operand
 type Env = M.Map Text AST.Operand
-type Codegen = L.IRBuilderT (State Env)
 type LLVM = L.ModuleBuilderT (State Env)
 
+instance ConvertibleStrings Text ShortByteString where
+  convertString = fromString . T.unpack
 
 ltypeOfTyp :: Type -> AST.Type
 ltypeOfTyp TyVoid = AST.void
@@ -47,11 +47,11 @@ codegenSexpr :: (MonadState Env m, L.MonadIRBuilder m) => SExpr -> m AST.Operand
 codegenSexpr (TyInt, SLiteral i) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool, SBoolLit b) = L.bit (if b then 1 else 0)
-codegenSexpr (ty, SId name) = do
+codegenSexpr (_, SId name) = do
   vars <- get
   case M.lookup name vars of
     Just addr -> L.load addr 0
-    Nothing -> error . T.unpack $ "Internal error - undefined variable name " <> name 
+    Nothing -> error . cs $ "Internal error - undefined variable name " <> name 
 
 codegenSexpr (TyInt, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
@@ -86,7 +86,11 @@ codegenSexpr (TyFloat, SUnop Neg e) = do
 codegenSexpr (TyBool, SUnop Not e) = do
   true <- L.bit 1; e' <- codegenSexpr e; L.xor true e'
 
-codegenSexpr (_, SAssign name e) = error "assignment not yet implemented"
+codegenSexpr (_, SAssign name e) = do
+  addr <- gets $ \vars -> vars M.! name
+  e' <- codegenSexpr e
+  L.store addr 0 e'
+  return e'
 
 codegenSexpr (_, SCall fun es) = do
   es' <- mapM (\e -> do e' <- codegenSexpr e; return (e', [])) es
@@ -108,18 +112,17 @@ codegenStatement _ = error "If, for, and while WIP"
 
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = do
-  let name = mkName (T.unpack $ sname f)
-      mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (fromString . T.unpack $ n))
-      args = map mkParam (sformals f)
+  let name = mkName (cs $ sname f)
+      mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (cs n))
+      args = map mkParam (sformals f ++ slocals f)
       retty = ltypeOfTyp (styp f)
-      body params = do
+      body _ = do
         _entry <- L.block `L.named` "entry"
-        env <- get
-        forM_ args $ \(t, n) -> do
-          addr <- L.alloca t Nothing 0
-          L.store addr 0 (AST.LocalReference t (fromString $ show n))
-          modify $ M.insert (T.pack . show $ n) addr
-          -- also need to do locals later
+        forM_ (sformals f ++ slocals f) $ \(t, n) -> do
+          let ltype = ltypeOfTyp t
+          addr <- L.alloca ltype Nothing 0
+          L.store addr 0 (AST.LocalReference ltype (mkName $ cs n))
+          modify $ M.insert n addr
         mapM_ codegenStatement (sbody f)
   fun <- L.function name args retty body
   modify $ M.insert (sname f) fun
@@ -129,7 +132,7 @@ emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
   where
     convert = map snd . M.toList
     emitBuiltIn f = 
-      let fname = mkName (T.unpack $ name f)
+      let fname = mkName (cs $ name f)
           paramTypes = map (ltypeOfTyp . fst) (formals f)
           retType = ltypeOfTyp (typ f)
       in do
@@ -137,6 +140,7 @@ emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
         modify $ M.insert (name f) fun
 
 codegenProgram :: SProgram -> AST.Module
-codegenProgram (globals, funcs) = flip evalState M.empty $ L.buildModuleT "microc" $ do
-  emitBuiltIns 
-  mapM_ codegenFunc funcs
+codegenProgram (globals, funcs) = 
+  flip evalState M.empty $ L.buildModuleT "microc" $ do
+    emitBuiltIns 
+    mapM_ codegenFunc funcs
