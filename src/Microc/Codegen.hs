@@ -8,6 +8,10 @@ import qualified LLVM.AST.IntegerPredicate as IP
 import qualified LLVM.AST.FloatingPointPredicate as FP
 import qualified LLVM.AST as AST
 import qualified LLVM.AST.Type as AST
+import qualified LLVM.AST.Global as G
+import qualified LLVM.AST.Constant as C
+import qualified LLVM.AST.Operand as O
+import LLVM.AST.Linkage
 import LLVM.AST.Name
 
 import qualified LLVM.IRBuilder.Module as L
@@ -22,7 +26,7 @@ import Data.String (fromString)
 
 import qualified Microc.Semant as Semant
 import Microc.Sast
-import Microc.Ast (Type(..), Op(..), Uop(..), Function(..))
+import Microc.Ast (Type(..), Op(..), Uop(..), Function(..), Bind)
 
 import           Data.String.Conversions
 import qualified Data.Text as T
@@ -110,6 +114,8 @@ codegenStatement (SBlock ss) = mapM_ codegenStatement ss
 
 codegenStatement _ = error "If, for, and while WIP"
 
+-- | Generate a function and add both the function name and variable names to
+-- the map
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = do
   let name = mkName (cs $ sname f)
@@ -139,8 +145,24 @@ emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
         fun <- L.extern fname paramTypes retType
         modify $ M.insert (name f) fun
 
+-- | codegenGlobal closely follows the structure of @extern defined in 
+-- LLVM.IRBuilder.Module
+codegenGlobal :: Bind -> LLVM ()
+codegenGlobal (t, n) = do
+  let name = mkName $ cs n
+      typ  = ltypeOfTyp t
+      var = O.ConstantOperand $ C.GlobalReference (AST.ptr typ) name
+  L.emitDefn $ AST.GlobalDefinition G.globalVariableDefaults
+   { G.name = name
+   , G.type' = typ
+   , G.linkage = Weak
+   , G.initializer = Just $ C.Int 0 0
+   }
+  modify $ M.insert n var
+
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (globals, funcs) = 
   flip evalState M.empty $ L.buildModuleT "microc" $ do
     emitBuiltIns 
+    mapM_ codegenGlobal globals
     mapM_ codegenFunc funcs
