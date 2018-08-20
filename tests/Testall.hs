@@ -35,12 +35,18 @@ main = defaultMain =<< goldenTests
 -- General structure taken from 
 -- https://ro-che.info/articles/2017-12-04-golden-tests
 goldenTests :: IO TestTree
-goldenTests = do
-  passingFiles <- findByExtension [".mc"] "tests/pass"
-  failingFiles <- findByExtension [".mc"] "tests/fail"
-  return $ testGroup "microc compiler output tests" $
-    [ goldenVsString (takeBaseName mcFile) outFile (cs <$> runFile mcFile) 
-      | mcFile <- passingFiles, let outFile = replaceExtension mcFile ".out" ]
-      ++
-    [ goldenVsString (takeBaseName mcFile) outFile (cs <$> runFile mcFile) 
-      | mcFile <- failingFiles, let outFile = replaceExtension mcFile ".err" ]
+goldenTests = testGroup "all tests" <$> sequence [passing, failing]
+
+passing :: IO TestTree
+passing = do
+  mcFiles <- findByExtension [".mc"] "tests/pass"
+  return $ testGroup "microc passing tests"
+    [ goldenVsString (takeBaseName mcFile) outfile (cs <$> runFile mcFile)
+      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".out" ]
+
+failing :: IO TestTree
+failing = do
+  mcFiles <- findByExtension [".mc"] "tests/fail"
+  return $ testGroup "microc failing tests"
+    [ goldenVsString (takeBaseName mcFile) outfile (cs <$> runFile mcFile)
+      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".err" ]
