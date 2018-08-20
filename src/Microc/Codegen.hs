@@ -62,9 +62,6 @@ codegenSexpr (TyInt, SBinop op lhs rhs) = do
   rhs' <- codegenSexpr rhs
   (case op of Add -> L.add; Sub -> L.sub; 
               Mult -> L.mul; Div -> L.sdiv; 
-              Equal -> L.icmp IP.EQ; Neq -> L.icmp IP.NE; 
-              Less -> L.icmp IP.SLT; Leq -> L.icmp IP.SLE; 
-              Greater -> L.icmp IP.SGT; Geq -> L.icmp IP.SGE;
               _ -> error "Internal error - semant failed") lhs' rhs'
 codegenSexpr (TyFloat, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
@@ -79,6 +76,9 @@ codegenSexpr (TyBool, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   (case op of And -> L.and; Or -> L.or; 
+              Equal -> L.icmp IP.EQ; Neq -> L.icmp IP.NE; 
+              Less -> L.icmp IP.SLT; Leq -> L.icmp IP.SLE; 
+              Greater -> L.icmp IP.SGT; Geq -> L.icmp IP.SGE;
               _ -> error "Internal error - semant failed") lhs' rhs'
 
 -- The Haskell LLVM bindings don't provide numerical or boolean negation
