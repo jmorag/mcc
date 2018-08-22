@@ -25,6 +25,8 @@ dependencies:
     - process
     - unix
     - filepath
+    - bytestring
+    - pretty-simple
 
 default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
 

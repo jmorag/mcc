@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: db56bebb7854b7ad5d6f9951324907ae8cd7bbfa0fa9dd954683ddd1bc771271
+-- hash: ce91bc95903c7879ab4f64865294414194dbbddd07bef6d065f9241ea0f41a87
 
 name:           mcc
 version:        0.1.0.0
@@ -39,6 +39,7 @@ library
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
     , directory
     , filepath
@@ -46,6 +47,7 @@ library
     , llvm-hs-pure >=6.1 && <7
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
+    , pretty-simple
     , process
     , string-conversions
     , text
@@ -62,6 +64,7 @@ executable mcc
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
     , directory
     , filepath
@@ -71,6 +74,7 @@ executable mcc
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
     , optparse-applicative
+    , pretty-simple
     , process
     , string-conversions
     , text
@@ -88,6 +92,7 @@ test-suite testall
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
     , directory
     , filepath
@@ -96,6 +101,7 @@ test-suite testall
     , mcc
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
+    , pretty-simple
     , process
     , silently
     , string-conversions

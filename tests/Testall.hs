@@ -18,6 +18,7 @@ runFile :: FilePath -> IO Text
 runFile infile = do
   program <- T.readFile infile
   let parseTree = runParser programP (cs infile) program
+      redirect action = cs <$> capture_ action
   case parseTree of
     Left _ -> redirect $ parseTest' programP program
     Right ast -> case checkProgram ast of
@@ -25,11 +26,9 @@ runFile infile = do
       Right sast -> do
         let llvmModule = codegenProgram sast
         redirect $ run llvmModule
-  where
-    redirect action = cs <$> capture_ action
 
 main :: IO ()
-main = defaultMain =<< goldenTests
+main = defaultMain =<< passing
 
 -- | All of the test cases
 -- General structure taken from 

@@ -17,7 +17,7 @@ import Control.Exception (bracket)
 -- | Generate an executable at the given filepath from an llvm module
 compile :: Module -> FilePath -> IO ()
 compile llvmModule outfile =
-  bracket (mkdtemp "build") removeDirectoryRecursive $ \buildDir ->
+  bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
     withCurrentDirectory buildDir $ do
       -- create temporary files for "output.ll", "output.s", and "runtime.o"
       (llvm, llvmHandle) <- mkstemps "output" ".ll"
@@ -47,7 +47,7 @@ call command args = do
     T.putStrLn err
 
 run :: Module -> IO ()
-run llvmModule = bracket (fst <$> mkstemps "a" ".out") removeFile $ \temp -> do
+run llvmModule = bracket (fst <$> mkstemps "a" ".out") removePathForcibly $ \temp -> do
   compile llvmModule temp
   (_, Just result, _, _) <- createProcess (shell ("./" <> temp))
     { std_out = CreatePipe }

@@ -14,6 +14,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Text (Text)
 
+import Text.Pretty.Simple
+
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath, llc :: FilePath }
 
@@ -45,13 +47,13 @@ runOpts (Options action infile llc) = do
     Left _ -> parseTest' programP program
     Right ast ->
       case action of 
-        Ast -> print ast
+        Ast -> pPrint ast
         _ -> 
           case checkProgram ast of
           Left err -> T.putStrLn err
           Right sast -> 
             case action of
-            Sast -> print sast
+            Sast -> pPrint sast
             LLVM -> T.putStrLn . cs . ppllvm $ codegenProgram sast
             Compile outfile -> do
               let llvm = codegenProgram sast

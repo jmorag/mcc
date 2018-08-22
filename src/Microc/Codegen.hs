@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- These extensions necessary to convert to and from ShortByteString, which 
 -- the LLVM bindings use internally for variable names
@@ -68,17 +69,26 @@ codegenSexpr (TyFloat, SBinop op lhs rhs) = do
   rhs' <- codegenSexpr rhs
   (case op of Add -> L.fadd; Sub -> L.fsub; 
               Mult -> L.fmul; Div -> L.fdiv;
-              Equal -> L.fcmp FP.OEQ; Neq -> L.fcmp FP.ONE; 
+              _ -> error "Internal error - semant failed") lhs' rhs'
+codegenSexpr (TyBool, SBinop op lhs@(TyInt, _) rhs) = do
+  lhs' <- codegenSexpr lhs
+  rhs' <- codegenSexpr rhs
+  (case op of Equal -> L.icmp IP.EQ; Neq -> L.icmp IP.NE; 
+              Less -> L.icmp IP.SLT; Leq -> L.icmp IP.SLE; 
+              Greater -> L.icmp IP.SGT; Geq -> L.icmp IP.SGE;
+              _ -> error "Internal error - semant failed") lhs' rhs'
+codegenSexpr (TyBool, SBinop op lhs@(TyFloat, _) rhs) = do
+  lhs' <- codegenSexpr lhs
+  rhs' <- codegenSexpr rhs
+  (case op of Equal -> L.fcmp FP.OEQ; Neq -> L.fcmp FP.ONE; 
               Less -> L.fcmp FP.OLT; Leq -> L.fcmp FP.OLE; 
               Greater -> L.fcmp FP.OGT; Geq -> L.fcmp FP.OGE;
               _ -> error "Internal error - semant failed") lhs' rhs'
-codegenSexpr (TyBool, SBinop op lhs rhs) = do
+codegenSexpr (TyBool, SBinop op lhs@(TyBool, _) rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
-  (case op of And -> L.and; Or -> L.or; 
+  (case op of And -> L.and; Or -> L.or;
               Equal -> L.icmp IP.EQ; Neq -> L.icmp IP.NE; 
-              Less -> L.icmp IP.SLT; Leq -> L.icmp IP.SLE; 
-              Greater -> L.icmp IP.SGT; Geq -> L.icmp IP.SGE;
               _ -> error "Internal error - semant failed") lhs' rhs'
 
 -- The Haskell LLVM bindings don't provide numerical or boolean negation
@@ -106,13 +116,30 @@ codegenSexpr (_, SNoexpr) = L.int32 0
 codegenSexpr sx = 
   error $ "Internal error - semant failed. Invalid sexpr " ++ show sx
 
-codegenStatement :: (MonadState Env m, L.MonadIRBuilder m) => SStatement -> m ()
+codegenStatement :: (MonadFix m, MonadState Env m, L.MonadIRBuilder m) => SStatement -> m ()
 codegenStatement (SExpr e) = void $ codegenSexpr e
+-- Need to fix returns so that they know about the type of the current function
+-- and can generate special return void instruction
 codegenStatement (SReturn e) = codegenSexpr e >>= L.ret
 
 codegenStatement (SBlock ss) = mapM_ codegenStatement ss
 
-codegenStatement _ = error "If, for, and while WIP"
+codegenStatement (SIf pred cons alt) = mdo
+  bool <- codegenSexpr pred
+  L.condBr bool thenBlock elseBlock
+  thenBlock <- L.block `L.named` "then"; do
+    codegenStatement cons
+    L.br mergeBlock
+  elseBlock <- L.block `L.named` "else"; do
+    codegenStatement alt
+    L.br mergeBlock
+  let mergeBlock = mkName "merge"
+  L.emitBlockStart mergeBlock
+  blockState <- L.liftIRState $ gets L.builderBlock
+  traceShowM $ L.partialBlockName <$> blockState
+
+codegenStatement _ = error "for and while WIP"
+
 
 -- | Generate a function and add both the function name and variable names to
 -- the map
@@ -137,13 +164,12 @@ emitBuiltIns :: LLVM ()
 emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
   where
     convert = map snd . M.toList
-    emitBuiltIn f = 
+    emitBuiltIn f = do
       let fname = mkName (cs $ name f)
           paramTypes = map (ltypeOfTyp . fst) (formals f)
           retType = ltypeOfTyp (typ f)
-      in do
-        fun <- L.extern fname paramTypes retType
-        modify $ M.insert (name f) fun
+      fun <- L.extern fname paramTypes retType
+      modify $ M.insert (name f) fun
 
 -- | codegenGlobal closely follows the structure of @extern defined in 
 -- LLVM.IRBuilder.Module

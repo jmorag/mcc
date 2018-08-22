@@ -67,8 +67,8 @@ void printbig(int c)
 void print(int i) { printf("%d\n", i); }
 
 void printb(int b) {
-    if (b) printf("True\n");
-    else   printf("False\n");
+    if (b) printf("1\n");
+    else   printf("0\n");
 }
 
 // In microc, this is called printf, but that name is obviously taken in real C

@@ -14,4 +14,5 @@ int main()
   printb(!true);
   print(-10);
   print(--42);
+  return 0;
 }

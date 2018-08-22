@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Microc.Parser (programP, runParser, parseTest') where
 
 import Data.Text (Text)
@@ -8,6 +7,7 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Expr
 import Data.Either (lefts, rights)
+import Control.Monad (void)
 
 opTable :: [[Operator Parser Expr]]
 opTable = 
@@ -17,9 +17,9 @@ opTable =
   , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]
   , [infixL Equal "==", infixL Neq "!="]
   , [infixL And "&&"], [infixL Or "||"]
-  -- irrefutable pattern Id string on lhs of assignment will error out if you
-  -- try to do something stupid like "1 = 2"
-  , [InfixR $ (\(Id s) rhs -> Assign s rhs) <$ symbol "="] 
+  , [InfixR $ (\lhs rhs -> case lhs of 
+      Id s -> Assign s rhs;
+      _ -> error $ "Cannot assign to expression " <> show lhs) <$ symbol "="] 
   ]
   where -- Megaparsec doesn't support multiple prefix operators by default,
         -- but we need this in order to parse things like double negatives or
@@ -49,28 +49,60 @@ typeP = (rword "int"   >> return TyInt)
 vdeclP :: Parser Bind
 vdeclP = (,) <$> typeP <*> identifier <* semi
 
-statementP :: Parser Statement
-statementP = do
-  block <- some statementP'
-  case block of
-    [single] -> return single
-    block -> return (Block block)
+-- statementP :: Parser Statement
+-- statementP = do
+--   block <- some statementP'
+--   case block of
+--     [single] -> return single
+--     block -> return (Block block)
 
-statementP' :: Parser Statement
-statementP' = Expr <$> exprP <* semi
+statementList :: Parser [Statement]
+statementList = many statementP
+
+-- Parses a single statement, not a block
+statementP :: Parser Statement
+statementP = 
+      Expr <$> exprP <* semi
   <|> Return <$> (rword "return" *> exprMaybe <* semi)
-  <|> ifP <|> forP <|> whileP <|> brackets statementP
-  where
-    -- Buggy: this doesn't parse 
-    -- if (x < 2) return 1; return fib(x-1) + fib(x-2); 
-    -- correctly. It sticks the to returns in the same block after the if
-    ifP = If <$> (rword "if" *> parens exprP) <*> statementP 
-             <*> option (Block []) (rword "else" *> statementP)
-    forP = For <$> (rword "for" *> symbol "(" *> exprMaybe <* semi) 
-               <*> (exprP <* semi) <*> (exprMaybe <* symbol ")") 
-               <*> statementP
-    whileP = While <$> (rword "while" *> parens exprP) <*> statementP
-    exprMaybe = option Noexpr exprP
+  <|> Block <$> brackets statementList
+  <|> ifP 
+  <|> forP 
+  <|> whileP
+
+exprMaybe :: Parser Expr
+exprMaybe = option Noexpr exprP
+
+
+ifP :: Parser Statement
+ifP = try withElse <|> withoutElse where
+  withElse = do
+    rword "if"
+    cond <- parens exprP
+    then' <- statementP
+    rword "else"
+    else' <- statementP
+    return $ If cond then' else'
+  withoutElse = do
+    rword "if"
+    cond <- parens exprP
+    then' <- statementP
+    return $ If cond then' (Block [])
+    
+forP :: Parser Statement
+forP = do
+  rword "for"
+  void $ symbol "("
+  e1 <- exprMaybe
+  semi
+  e2 <- exprP
+  semi
+  e3 <- exprMaybe
+  symbol ")"
+  body <- statementP
+  return $ For e1 e2 e3 body
+
+whileP :: Parser Statement
+whileP = While <$> (rword "while" *> parens exprP) <*> statementP
 
 fdeclP :: Parser Function
 fdeclP = do
