@@ -49,22 +49,12 @@ typeP = (rword "int"   >> return TyInt)
 vdeclP :: Parser Bind
 vdeclP = (,) <$> typeP <*> identifier <* semi
 
--- statementP :: Parser Statement
--- statementP = do
---   block <- some statementP'
---   case block of
---     [single] -> return single
---     block -> return (Block block)
-
-statementList :: Parser [Statement]
-statementList = many statementP
-
 -- Parses a single statement, not a block
 statementP :: Parser Statement
 statementP = 
       Expr <$> exprP <* semi
   <|> Return <$> (rword "return" *> exprMaybe <* semi)
-  <|> Block <$> brackets statementList
+  <|> Block <$> brackets (many statementP)
   <|> ifP 
   <|> forP 
   <|> whileP
@@ -93,11 +83,11 @@ forP = do
   rword "for"
   void $ symbol "("
   e1 <- exprMaybe
-  semi
+  void semi
   e2 <- exprP
-  semi
+  void semi
   e3 <- exprMaybe
-  symbol ")"
+  void $ symbol ")"
   body <- statementP
   return $ For e1 e2 e3 body
 

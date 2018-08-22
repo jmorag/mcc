@@ -101,26 +101,29 @@ codegenSexpr (TyBool, SUnop Not e) = do
   true <- L.bit 1; e' <- codegenSexpr e; L.xor true e'
 
 codegenSexpr (_, SAssign name e) = do
-  addr <- gets $ \vars -> vars M.! name
+  addr <- gets (M.! name)
   e' <- codegenSexpr e
   L.store addr 0 e'
   return e'
 
 codegenSexpr (_, SCall fun es) = do
-  es' <- mapM (\e -> do e' <- codegenSexpr e; return (e', [])) es
-  f <- gets $ \env -> env M.! fun
+  es' <- forM es $ \e -> do e' <- codegenSexpr e; return (e', [])
+  f <- gets (M.! fun)
   L.call f es'
 
 codegenSexpr (_, SNoexpr) = L.int32 0
+
 -- Final catchall
 codegenSexpr sx = 
   error $ "Internal error - semant failed. Invalid sexpr " ++ show sx
 
-codegenStatement :: (MonadFix m, MonadState Env m, L.MonadIRBuilder m) => SStatement -> m ()
+codegenStatement :: (MonadFix m, MonadState Env m, L.MonadIRBuilder m) => 
+  SStatement -> m ()
 codegenStatement (SExpr e) = void $ codegenSexpr e
--- Need to fix returns so that they know about the type of the current function
--- and can generate special return void instruction
-codegenStatement (SReturn e) = codegenSexpr e >>= L.ret
+
+codegenStatement (SReturn e) = case e of
+  (TyVoid, SNoexpr) -> L.retVoid
+  _ -> codegenSexpr e >>= L.ret
 
 codegenStatement (SBlock ss) = mapM_ codegenStatement ss
 
@@ -129,36 +132,75 @@ codegenStatement (SIf pred cons alt) = mdo
   L.condBr bool thenBlock elseBlock
   thenBlock <- L.block `L.named` "then"; do
     codegenStatement cons
-    L.br mergeBlock
+    mkTerminator $ L.br mergeBlock
   elseBlock <- L.block `L.named` "else"; do
     codegenStatement alt
-    L.br mergeBlock
-  let mergeBlock = mkName "merge"
-  L.emitBlockStart mergeBlock
-  blockState <- L.liftIRState $ gets L.builderBlock
-  traceShowM $ L.partialBlockName <$> blockState
+    mkTerminator $ L.br mergeBlock
+  mergeBlock <- L.block `L.named` "merge"
+  return ()
 
-codegenStatement _ = error "for and while WIP"
+-- Implementing a do-while construct is actually easier than while, so we
+-- implement while as `if pred //enter do while// else leave
+codegenStatement (SWhile pred body) = mdo
+  -- check the condition the first time
+  bool <- codegenSexpr pred
+  L.condBr bool whileBlock mergeBlock
+  whileBlock <- L.block `L.named` "while_body"; do
+    codegenStatement body
+    -- Make sure that there was no return inside of the block and then generate
+    -- the check on the condition and go back to the beginning
+    check <- hasTerminator
+    unless check $ do
+      continue <- codegenSexpr pred
+      L.condBr continue whileBlock mergeBlock
+  mergeBlock <- L.block `L.named` "merge"
+  return ()
 
+-- Turn for loops into equivalent while loops
+codegenStatement (SFor e1 e2 e3 body) = codegenStatement newStatement
+  where
+    body' = SBlock [body, SExpr e3]
+    newStatement = SBlock [SExpr e1, SWhile e2 body']
+
+-- | Check if the currently active block has a terminator
+-- Note: this will generate an error if there is no currently active block
+hasTerminator :: L.MonadIRBuilder m => m Bool
+hasTerminator = do
+  current <- L.liftIRState $ gets L.builderBlock
+  case current of
+    Nothing    -> error "No currently active block"
+    Just block -> case L.partialBlockTerm block of
+      Nothing -> return False
+      Just _  -> return True
+
+mkTerminator :: L.MonadIRBuilder m => m () -> m ()
+mkTerminator instr = do
+  check <- hasTerminator
+  unless check instr
 
 -- | Generate a function and add both the function name and variable names to
--- the map
+-- the map. TODO document wtf is going on in here
 codegenFunc :: SFunction -> LLVM ()
-codegenFunc f = do
+codegenFunc f = mdo
+  modify $ M.insert (sname f) fun
   let name = mkName (cs $ sname f)
       mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (cs n))
-      args = map mkParam (sformals f ++ slocals f)
+      args = map mkParam (sformals f)
       retty = ltypeOfTyp (styp f)
       body _ = do
         _entry <- L.block `L.named` "entry"
-        forM_ (sformals f ++ slocals f) $ \(t, n) -> do
+        forM_ (sformals f) $ \(t, n) -> do
           let ltype = ltypeOfTyp t
           addr <- L.alloca ltype Nothing 0
           L.store addr 0 (AST.LocalReference ltype (mkName $ cs n))
           modify $ M.insert n addr
+        forM_ (slocals f) $ \(t, n) -> do
+          let ltype = ltypeOfTyp t
+          addr <- L.alloca ltype Nothing 0
+          modify $ M.insert n addr
         mapM_ codegenStatement (sbody f)
   fun <- L.function name args retty body
-  modify $ M.insert (sname f) fun
+  return ()
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
