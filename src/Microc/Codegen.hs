@@ -1,8 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
--- These extensions necessary to convert to and from ShortByteString, which 
--- the LLVM bindings use internally for variable names
 module Microc.Codegen (codegenProgram) where
 
 import qualified LLVM.AST.IntegerPredicate as IP
@@ -35,15 +33,15 @@ import qualified Data.Text as T
 import           Data.Text (Text)
 import           Data.Char (ord)
 
-import Debug.Trace
-
 -- When using the IRBuilder, both functions and variables have the type Operand
 type Env = M.Map Text AST.Operand
+
 -- LLVM and Codegen type synonyms allow us to emit module definitions and basic
 -- block instructions at the top level without being forced to pass explicit
 -- module and builder parameters to every function
 type LLVM = L.ModuleBuilderT (State Env)
-type Codegen = L.IRBuilderT (L.ModuleBuilderT (State Env))
+type Codegen = L.IRBuilderT LLVM
+
 instance L.MonadModuleBuilder m => L.MonadModuleBuilder (L.IRBuilderT m)
 
 instance ConvertibleStrings Text ShortByteString where
@@ -118,8 +116,8 @@ codegenSexpr (_, SAssign name e) = do
   return e'
 
 codegenSexpr (_, SCall fun es) = do
-  intFormatStr <- globalStringPtr "%d\n"
-  floatFormatStr <- globalStringPtr "%g\n"
+  intFormatStr <- gets (M.! "_intFmt")
+  floatFormatStr <- gets (M.! "_floatFmt")
   printf <- gets (M.! "printf")
   case fun of
     "print" -> do
@@ -186,18 +184,8 @@ codegenStatement (SFor e1 e2 e3 body) = codegenStatement newStatement
     body' = SBlock [body, SExpr e3]
     newStatement = SBlock [SExpr e1, SWhile e2 body']
 
--- | Check if the currently active block has a terminator
--- Note: this will generate an error if there is no currently active block
-hasTerminator :: L.MonadIRBuilder m => m Bool
-hasTerminator = do
-  current <- L.liftIRState $ gets L.builderBlock
-  case current of
-    Nothing    -> error "No currently active block"
-    Just block -> case L.partialBlockTerm block of
-      Nothing -> return False
-      Just _  -> return True
 
-mkTerminator :: L.MonadIRBuilder m => m () -> m ()
+mkTerminator :: Codegen () -> Codegen ()
 mkTerminator instr = do
   check <- hasTerminator
   unless check instr
@@ -232,6 +220,22 @@ emitBuiltIns = do
   printf <- externVarArgs (mkName "printf") [ charStar ] AST.i32
   modify $ M.insert "printf" printf
   modify $ M.insert "printbig" printbig
+  intFmt <- globalStringPtr "%d\n" $ mkName "_intFmt"
+  floatFmt <- globalStringPtr "%g\n" $ mkName "_floatFmt"
+  modify $ M.insert "_intFmt" intFmt
+  modify $ M.insert "_floatFmt" floatFmt
+
+codegenProgram :: SProgram -> AST.Module
+codegenProgram (globals, funcs) = 
+  flip evalState M.empty $ L.buildModuleT "microc" $ do
+    emitBuiltIns 
+    mapM_ codegenGlobal globals
+    mapM_ codegenFunc funcs
+
+-------------------------------------------------------------------------------
+-- The following functions should really be included in llvm-hs. I'll open a PR
+-- soon to have something like these included in the near future
+-------------------------------------------------------------------------------
 
 -- | codegenGlobal closely follows the structure of @extern defined in 
 -- LLVM.IRBuilder.Module
@@ -248,22 +252,22 @@ codegenGlobal (t, n) = do
    }
   modify $ M.insert n var
 
-globalStringPtr :: String -> Codegen O.Operand
-globalStringPtr str = do
-  name <- L.freshName "globalStr"
+globalStringPtr :: L.MonadModuleBuilder m => String -> Name -> m O.Operand
+globalStringPtr str name = do
   let asciiVals = map (fromIntegral . ord) str
       llvmVals  = map (C.Int 8) (asciiVals ++ [0])
       charArray = C.Array char llvmVals
       typ = typeOf charArray
-      var = O.ConstantOperand $ C.GlobalReference (AST.ptr typ) name
+      var = O.ConstantOperand $ C.BitCast (C.GlobalReference (AST.ptr typ) name) charStar
   L.emitDefn $ AST.GlobalDefinition G.globalVariableDefaults
    { G.name = name
    , G.type' = typ
    , G.linkage = Private
    , G.isConstant = True
    , G.initializer = Just charArray
+   , G.unnamedAddr = Just G.GlobalAddr
    }
-  L.bitcast var charStar
+  pure var
 
 externVarArgs :: L.MonadModuleBuilder m => Name -> [AST.Type] -> AST.Type -> m O.Operand
 externVarArgs nm argtys retty = do
@@ -276,9 +280,13 @@ externVarArgs nm argtys retty = do
   let funty = AST.ptr $ AST.FunctionType retty argtys True
   pure $ O.ConstantOperand $ C.GlobalReference funty nm
 
-codegenProgram :: SProgram -> AST.Module
-codegenProgram (globals, funcs) = 
-  flip evalState M.empty $ L.buildModuleT "microc" $ do
-    emitBuiltIns 
-    mapM_ codegenGlobal globals
-    mapM_ codegenFunc funcs
+-- | Check if the currently active block has a terminator
+-- Note: this will generate an error if there is no currently active block
+hasTerminator :: L.MonadIRBuilder m => m Bool
+hasTerminator = do
+  current <- L.liftIRState $ gets L.builderBlock
+  case current of
+    Nothing    -> error "No currently active block"
+    Just block -> case L.partialBlockTerm block of
+      Nothing -> return False
+      Just _  -> return True
