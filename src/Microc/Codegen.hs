@@ -14,6 +14,7 @@ import qualified LLVM.AST.Constant as C
 import qualified LLVM.AST.Operand as O
 import LLVM.AST.Linkage
 import LLVM.AST.Name
+import LLVM.AST.Typed (typeOf)
 
 import qualified LLVM.IRBuilder.Module as L
 import qualified LLVM.IRBuilder.Monad as L
@@ -25,19 +26,25 @@ import qualified Data.Map as M
 import Control.Monad.State
 import Data.String (fromString)
 
-import qualified Microc.Semant as Semant
+-- import qualified Microc.Semant as Semant
 import Microc.Sast
-import Microc.Ast (Type(..), Op(..), Uop(..), Function(..), Bind)
+import Microc.Ast (Type(..), Op(..), Uop(..), Bind)
 
 import           Data.String.Conversions
 import qualified Data.Text as T
 import           Data.Text (Text)
+import           Data.Char (ord)
 
 import Debug.Trace
 
 -- When using the IRBuilder, both functions and variables have the type Operand
 type Env = M.Map Text AST.Operand
+-- LLVM and Codegen type synonyms allow us to emit module definitions and basic
+-- block instructions at the top level without being forced to pass explicit
+-- module and builder parameters to every function
 type LLVM = L.ModuleBuilderT (State Env)
+type Codegen = L.IRBuilderT (L.ModuleBuilderT (State Env))
+instance L.MonadModuleBuilder m => L.MonadModuleBuilder (L.IRBuilderT m)
 
 instance ConvertibleStrings Text ShortByteString where
   convertString = fromString . T.unpack
@@ -48,7 +55,11 @@ ltypeOfTyp TyInt = AST.i32
 ltypeOfTyp TyFloat = AST.double
 ltypeOfTyp TyBool = AST.IntegerType 1
 
-codegenSexpr :: (MonadState Env m, L.MonadIRBuilder m) => SExpr -> m AST.Operand
+char, charStar :: AST.Type
+char = AST.IntegerType 8
+charStar = AST.ptr $ AST.IntegerType 8
+
+codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt, SLiteral i) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool, SBoolLit b) = L.bit (if b then 1 else 0)
@@ -107,9 +118,23 @@ codegenSexpr (_, SAssign name e) = do
   return e'
 
 codegenSexpr (_, SCall fun es) = do
-  es' <- forM es $ \e -> do e' <- codegenSexpr e; return (e', [])
-  f <- gets (M.! fun)
-  L.call f es'
+  intFormatStr <- globalStringPtr "%d\n"
+  floatFormatStr <- globalStringPtr "%g\n"
+  printf <- gets (M.! "printf")
+  case fun of
+    "print" -> do
+      e' <- codegenSexpr $ head es
+      L.call printf [(intFormatStr, []), (e', [])]
+    "printf" -> do
+      e' <- codegenSexpr $ head es
+      L.call printf [(floatFormatStr, []), (e', [])]
+    "printb" -> do
+      e' <- codegenSexpr $ head es
+      L.call printf [(intFormatStr, []), (e', [])]
+    _ -> do
+      es' <- forM es $ \e -> do e' <- codegenSexpr e; return (e', [])
+      f <- gets (M.! fun)
+      L.call f es'
 
 codegenSexpr (_, SNoexpr) = L.int32 0
 
@@ -117,8 +142,7 @@ codegenSexpr (_, SNoexpr) = L.int32 0
 codegenSexpr sx = 
   error $ "Internal error - semant failed. Invalid sexpr " ++ show sx
 
-codegenStatement :: (MonadFix m, MonadState Env m, L.MonadIRBuilder m) => 
-  SStatement -> m ()
+codegenStatement :: SStatement -> Codegen ()
 codegenStatement (SExpr e) = void $ codegenSexpr e
 
 codegenStatement (SReturn e) = case e of
@@ -203,15 +227,11 @@ codegenFunc f = mdo
   return ()
 
 emitBuiltIns :: LLVM ()
-emitBuiltIns = mapM_ emitBuiltIn (convert Semant.builtIns)
-  where
-    convert = map snd . M.toList
-    emitBuiltIn f = do
-      let fname = mkName (cs $ name f)
-          paramTypes = map (ltypeOfTyp . fst) (formals f)
-          retType = ltypeOfTyp (typ f)
-      fun <- L.extern fname paramTypes retType
-      modify $ M.insert (name f) fun
+emitBuiltIns = do
+  printbig <- L.extern (mkName "printbig") [ AST.i32 ] AST.void
+  printf <- externVarArgs (mkName "printf") [ charStar ] AST.i32
+  modify $ M.insert "printf" printf
+  modify $ M.insert "printbig" printbig
 
 -- | codegenGlobal closely follows the structure of @extern defined in 
 -- LLVM.IRBuilder.Module
@@ -227,6 +247,34 @@ codegenGlobal (t, n) = do
    , G.initializer = Just $ C.Int 0 0
    }
   modify $ M.insert n var
+
+globalStringPtr :: String -> Codegen O.Operand
+globalStringPtr str = do
+  name <- L.freshName "globalStr"
+  let asciiVals = map (fromIntegral . ord) str
+      llvmVals  = map (C.Int 8) (asciiVals ++ [0])
+      charArray = C.Array char llvmVals
+      typ = typeOf charArray
+      var = O.ConstantOperand $ C.GlobalReference (AST.ptr typ) name
+  L.emitDefn $ AST.GlobalDefinition G.globalVariableDefaults
+   { G.name = name
+   , G.type' = typ
+   , G.linkage = Private
+   , G.isConstant = True
+   , G.initializer = Just charArray
+   }
+  L.bitcast var charStar
+
+externVarArgs :: L.MonadModuleBuilder m => Name -> [AST.Type] -> AST.Type -> m O.Operand
+externVarArgs nm argtys retty = do
+  L.emitDefn $ AST.GlobalDefinition G.functionDefaults
+    { G.name        = nm
+    , G.linkage     = External
+    , G.parameters  = ([G.Parameter ty (mkName "") [] | ty <- argtys], True)
+    , G.returnType  = retty
+    }
+  let funty = AST.ptr $ AST.FunctionType retty argtys True
+  pure $ O.ConstantOperand $ C.GlobalReference funty nm
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (globals, funcs) = 

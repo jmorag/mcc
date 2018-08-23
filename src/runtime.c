@@ -1,7 +1,3 @@
-/*
- *  The printing functions needed by microc
- */
-
 #include <stdio.h>
 
 /*
@@ -52,8 +48,12 @@ void printbig(int c)
 {
   int index = 0;
   int col, data;
-  if (c >= '0' && c <= '9') index = 8 + (c - '0') * 8;
-  else if (c >= 'A' && c <= 'Z') index = 88 + (c - 'A') * 8;
+  if (c >= '0' && c <= '9') { 
+    index = 8 + (c - '0') * 8; 
+  }
+  else if (c >= 'A' && c <= 'Z') { 
+    index = 88 + (c - 'A') * 8; 
+  }
   do {
     data = font[index++];
     for (col = 0 ; col < 8 ; data <<= 1, col++) {
@@ -64,15 +64,6 @@ void printbig(int c)
   } while (index & 0x7); 
 }
 
-void print(int i) { printf("%d\n", i); }
-
-void printb(int b) {
-    if (b) printf("1\n");
-    else   printf("0\n");
-}
-
-// In microc, this is called printf, but that name is obviously taken in real C
-void printfloat(double f) { printf("%f\n", f); }
 
 #ifdef BUILD_TEST
 int main()
