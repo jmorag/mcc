@@ -24,7 +24,6 @@ import qualified Data.Map as M
 import Control.Monad.State
 import Data.String (fromString)
 
--- import qualified Microc.Semant as Semant
 import Microc.Sast
 import Microc.Ast (Type(..), Op(..), Uop(..), Bind)
 
@@ -194,25 +193,45 @@ mkTerminator instr = do
 -- the map. TODO document wtf is going on in here
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = mdo
+  -- We need to forward reference the generated function and insert it into the
+  -- environment _before_ generating its body in order to handle the
+  -- possibility of the function calling itself recursively
   modify $ M.insert (sname f) fun
+
+  -- Get the initial environment after we've added the name of the function and
+  -- before we've polluted it with local varaible names
+  state <- get
+
   let name = mkName (cs $ sname f)
       mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (cs n))
       args = map mkParam (sformals f)
       retty = ltypeOfTyp (styp f)
-      body _ = do
+
+      -- Generate the body of the function:
+      body ops = do
+        let pairs = zip ops (sformals f)
         _entry <- L.block `L.named` "entry"
-        forM_ (sformals f) $ \(t, n) -> do
-          let ltype = ltypeOfTyp t
+        -- Add the formal parameters to the map, allocate them on the stack,
+        -- and then emit the necessary store instructions
+        forM_ pairs $ \(op, (_, n)) -> do
+          let ltype = typeOf op
           addr <- L.alloca ltype Nothing 0
-          L.store addr 0 (AST.LocalReference ltype (mkName $ cs n))
+          L.store addr 0 op 
           modify $ M.insert n addr
+        -- Same for the locals, except we do not emit the store instruction for
+        -- them
         forM_ (slocals f) $ \(t, n) -> do
           let ltype = ltypeOfTyp t
           addr <- L.alloca ltype Nothing 0
           modify $ M.insert n addr
+        -- Evaluate the actual body of the function after making the necessary
+        -- allocations
         mapM_ codegenStatement (sbody f)
+
   fun <- L.function name args retty body
-  return ()
+  -- Undo the modifications to the environment made after we inserted the
+  -- function so no out of scope variables are kept in the map.
+  put state
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = do
@@ -224,6 +243,14 @@ emitBuiltIns = do
   floatFmt <- globalStringPtr "%g\n" $ mkName "_floatFmt"
   modify $ M.insert "_intFmt" intFmt
   modify $ M.insert "_floatFmt" floatFmt
+
+codegenGlobal :: Bind -> LLVM ()
+codegenGlobal (t, n) = do
+  let name = mkName $ cs n
+      typ  = ltypeOfTyp t
+      initVal = C.Int 0 0
+  var <- global name typ initVal
+  modify $ M.insert n var
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (globals, funcs) = 
@@ -237,20 +264,21 @@ codegenProgram (globals, funcs) =
 -- soon to have something like these included in the near future
 -------------------------------------------------------------------------------
 
--- | codegenGlobal closely follows the structure of @extern defined in 
--- LLVM.IRBuilder.Module
-codegenGlobal :: Bind -> LLVM ()
-codegenGlobal (t, n) = do
-  let name = mkName $ cs n
-      typ  = ltypeOfTyp t
-      var = O.ConstantOperand $ C.GlobalReference (AST.ptr typ) name
+-- | A global variable definition
+global
+  :: L.MonadModuleBuilder m
+  => Name       -- ^ Variable name
+  -> AST.Type   -- ^ Type
+  -> C.Constant -- ^ Initializer
+  -> m O.Operand
+global nm ty initVal = do
   L.emitDefn $ AST.GlobalDefinition G.globalVariableDefaults
-   { G.name = name
-   , G.type' = typ
-   , G.linkage = Weak
-   , G.initializer = Just $ C.Int 0 0
-   }
-  modify $ M.insert n var
+    { G.name        = nm
+    , G.type'       = ty
+    , G.linkage     = Weak
+    , G.initializer = Just initVal
+    }
+  pure $ O.ConstantOperand $ C.GlobalReference (AST.ptr ty) nm
 
 globalStringPtr :: L.MonadModuleBuilder m => String -> Name -> m O.Operand
 globalStringPtr str name = do
