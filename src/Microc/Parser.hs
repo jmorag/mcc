@@ -1,10 +1,8 @@
 module Microc.Parser (programP, runParser, parseTest') where
 
-import Data.Text (Text)
 import Microc.Ast
 import Microc.Scanner
 import Text.Megaparsec
-import Text.Megaparsec.Char
 import Text.Megaparsec.Expr
 import Data.Either (lefts, rights)
 import Control.Monad (void)

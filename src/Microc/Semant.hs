@@ -7,22 +7,16 @@ import Microc.Sast
 import qualified Data.Map as M
 import Data.Tuple (swap)
 import Control.Monad.State
-import Control.Monad.Reader
-import Control.Monad.Writer
 import Control.Monad.Except
 import Data.Maybe (isNothing)
 import           Data.Text (Text)
 import qualified Data.Text as T
+import Data.List (find)
 
 type Vars = M.Map Text Type
 type Funcs = M.Map Text Function
 data Env = Env { vars :: Vars, funcs :: Funcs, thisFunc :: Function }
 
--- -- Type of semantic checker computations that can only read from the environment
--- type SemantR = ExceptT String (Reader Env)
--- -- Type of semantic checker computations that can only write to the environment
--- type SemantW = ExceptT String (Writer Env)
--- Type of semanctic checker computations that have unrestricted env access
 type SemantS = ExceptT Text (State Env)
 
 guardInfo :: MonadError Text m => Bool -> Text -> m a -> m a
@@ -210,5 +204,7 @@ checkProgram (binds, funcs) =
     let globals = checkBinds "global" binds
     modify $ \env -> env { vars = M.fromList (map swap globals) }
     funcs' <- mapM checkFunction funcs
-    return (globals, funcs')
+    case find (\f -> sname f == "main") funcs' of
+      Nothing -> throwError "Error, main function not defined"
+      Just _ -> return (globals, funcs')
   

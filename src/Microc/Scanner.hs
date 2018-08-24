@@ -1,11 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Microc.Scanner where
 
-import Control.Monad (void)
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Text.Megaparsec.Expr
 import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Text (Text)
 import qualified Data.Text as T
