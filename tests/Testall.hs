@@ -11,6 +11,7 @@ import qualified Data.Text.IO as T
 import           Data.Text (Text)
 
 import System.IO.Silently
+import System.Environment
 
 -- | Given a microc file, attempt to compile and execute it and write the
 -- results to a new file to be compared with what should be the correct output
@@ -28,7 +29,11 @@ runFile infile = do
         redirect $ run llvmModule
 
 main :: IO ()
-main = defaultMain =<< passing
+main = do 
+  -- Having all tests run in parallel causes strange problems, so we restrict
+  -- them to run sequentially
+  setEnv "TASTY_NUM_THREADS" "1"
+  defaultMain =<< goldenTests
 
 -- | All of the test cases
 -- General structure taken from 

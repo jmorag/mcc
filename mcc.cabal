@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ce91bc95903c7879ab4f64865294414194dbbddd07bef6d065f9241ea0f41a87
+-- hash: baf6290fd6763004d4900ca8492f3f97a4e8b45af269a675e0f276ada798f6a6
 
 name:           mcc
 version:        0.1.0.0
@@ -61,7 +61,7 @@ executable mcc
   hs-source-dirs:
       app
   default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , bytestring
@@ -89,7 +89,7 @@ test-suite testall
   hs-source-dirs:
       tests
   default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns -threaded
+  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , bytestring

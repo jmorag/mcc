@@ -36,7 +36,6 @@ library:
 executable:
   main: Main.hs
   source-dirs: app
-  ghc-options: -threaded
   dependencies: 
       - optparse-applicative
       - mcc
@@ -45,7 +44,6 @@ tests:
   testall:
     main: Testall.hs
     source-dirs: tests
-    ghc-options: -threaded
     dependencies:
         - tasty
         - tasty-golden
