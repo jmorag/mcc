@@ -1,6 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-module Microc.Semant (checkProgram, builtIns) where
+module Microc.Semant (checkProgram) where
 
 import Microc.Ast
 import Microc.Sast
@@ -19,18 +17,22 @@ data Env = Env { vars :: Vars, funcs :: Funcs, thisFunc :: Function }
 
 type SemantS = ExceptT Text (State Env)
 
-guardInfo :: MonadError Text m => Bool -> Text -> m a -> m a
+guardInfo :: MonadError e m => Bool -> e -> m a -> m a
 guardInfo cond msg rest = if not cond then throwError msg else rest
 
-checkBinds :: Text -> [Bind] -> [Bind]
-checkBinds kind = go M.empty
+checkBinds :: Text -> [Bind] -> SemantS [Bind]
+checkBinds kind = mapM $ checkBind kind
   where
-    go checked [] = map (\(name, typ) -> (typ, name)) (M.toList checked)
-    go checked (b:bs) = case b of 
-      (TyVoid, _) -> error . T.unpack $ "Illegal void binding " <> kind <> " " <> snd b
-      _ -> case M.lookup (snd b) checked of
-        Nothing -> go (M.insert (snd b) (fst b) checked) bs
-        Just _ -> error . T.unpack $ "Illegal duplicate binding " <> kind <> " " <> snd b
+    checkBind kind (TyVoid, name) =
+      throwError $ "illegal void binding in " <> kind <> " variable " <> name
+
+    checkBind kind (ty, name) = do
+      vars <- gets vars
+      guardInfo (M.notMember name vars)
+                ("Illegal duplicate " <> kind <> " binding " <> name)
+        $ do
+            modify $ \env -> env { vars = M.insert name ty vars }
+            return (ty, name)
 
 builtIns :: Funcs
 builtIns = M.fromList $ map toFunc
@@ -145,16 +147,6 @@ checkStatement stmt = case stmt of
       nothingFollowsRet (s:ss) = 
         case s of Return _ -> False; _ -> nothingFollowsRet ss
 
-  
-    --case sl of
-    ---- unsure is this first case is necessary...
-    --[s@(Return _)] -> do s' <- checkStatement s; return $ SBlock [s']
-    ---------------------------
-    --Return _ : _ -> throwError $ "nothing can follow a return: error in " <> T.pack (show stmt)
-    --Block sl : ss -> checkStatement $ Block (sl ++ ss)
-    --_ -> SBlock <$> mapM checkStatement sl
-
-    
 checkFunction :: Function -> SemantS SFunction    
 checkFunction func = do
   -- add the fname to the table and check for conflicts
@@ -166,8 +158,8 @@ checkFunction func = do
       env { funcs = M.insert (name func) func funcs, thisFunc = func }
 
   -- check variables
-  let formals' = checkBinds "formal" (formals func)
-  let locals'  = checkBinds "local"  (locals func)
+  formals' <- checkBinds "formal" (formals func)
+  locals'  <- checkBinds "local"  (locals func)
   -- create local variable table
   globals <- gets vars
   let allVars = M.toList globals ++ map swap (formals' ++ locals')
@@ -175,16 +167,18 @@ checkFunction func = do
 
   -- Overwrite local variables into the environment for the body checking
   modify $ \env -> env { vars = localVars }
-  body' <- mapM checkStatement (body func)
+  body' <- checkStatement (Block $ body func)
   -- Set the env back to the way it was
   modify $ \env -> env { vars = globals }
 
-  return $ SFunction { styp = typ func 
-                     , sname = name func
-                     , sformals = formals'
-                     , slocals = locals'
-                     , sbody = body'
-                     }
+  case body' of 
+    SBlock body'' -> return $ SFunction { styp = typ func 
+                                        , sname = name func
+                                        , sformals = formals'
+                                        , slocals = locals'
+                                        , sbody = body''
+                                        }
+    _ -> error "Internal error - block didn't become a block?"
 
 
 checkProgram :: Program -> Either Text SProgram
@@ -201,10 +195,9 @@ checkProgram (binds, funcs) =
                          , body = []
                          }
   checkProgram' (binds, funcs) = do
-    let globals = checkBinds "global" binds
+    globals <- checkBinds "global" binds
     modify $ \env -> env { vars = M.fromList (map swap globals) }
     funcs' <- mapM checkFunction funcs
     case find (\f -> sname f == "main") funcs' of
       Nothing -> throwError "Error, main function not defined"
       Just _ -> return (globals, funcs')
-  
