@@ -60,21 +60,15 @@ statementP =
 exprMaybe :: Parser Expr
 exprMaybe = option Noexpr exprP
 
-
 ifP :: Parser Statement
-ifP = try withElse <|> withoutElse where
-  withElse = do
-    rword "if"
-    cond <- parens exprP
-    then' <- statementP
-    rword "else"
-    else' <- statementP
-    return $ If cond then' else'
-  withoutElse = do
-    rword "if"
-    cond <- parens exprP
-    then' <- statementP
-    return $ If cond then' (Block [])
+ifP = do    
+  rword "if"
+  cond <- parens exprP
+  then' <- statementP
+  else' <- option (Block []) $ rword "else" *> statementP
+  return $ If cond then' else'
+    
+    
     
 forP :: Parser Statement
 forP = do
