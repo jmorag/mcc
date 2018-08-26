@@ -4,20 +4,14 @@ module Main where
 import Microc hiding (Parser)
 
 import Options.Applicative
-import Data.Semigroup ((<>))
-import Data.Maybe (fromMaybe)
-
 import LLVM.Pretty
-
-import           Data.String.Conversions
-import qualified Data.Text as T
+import Data.String.Conversions
 import qualified Data.Text.IO as T
-import           Data.Text (Text)
 
 import Text.Pretty.Simple
 
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
-data Options = Options { action :: Action, infile :: FilePath, llc :: FilePath }
+data Options = Options { action :: Action, infile :: FilePath }
 
 actionP :: Parser Action
 actionP = flag' Ast (long "ast" <> short 'a')
@@ -32,7 +26,6 @@ optionsP :: Parser Options
 optionsP = Options 
   <$> actionP 
   <*> strArgument (help "input file" <> metavar "FILE")
-  <*> strOption (long "llc" <> value "/usr/local/opt/llvm/bin/llc")
               
 main :: IO ()
 main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
@@ -40,7 +33,7 @@ main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
 runOpts :: Options -> IO ()
-runOpts (Options action infile llc) = do 
+runOpts (Options action infile) = do 
   program <- T.readFile infile
   let parseTree = runParser programP (show infile) program
   case parseTree of

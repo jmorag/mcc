@@ -4,7 +4,6 @@ import Microc.Ast
 import Microc.Scanner
 import Text.Megaparsec
 import Text.Megaparsec.Expr
-import Data.Either (lefts, rights)
 import Control.Monad (void)
 
 opTable :: [[Operator Parser Expr]]
