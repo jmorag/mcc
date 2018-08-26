@@ -13,8 +13,8 @@ extra-source-files: README.md
 
 dependencies:
     - base >= 4.7 && < 5
-    - megaparsec >= 7 && < 8
-    - parser-combinators >= 1 && < 2
+    - happy
+    - alex
     - mtl >= 2.2 && <= 3
     - containers
     - text
@@ -30,6 +30,8 @@ dependencies:
     - llvm-hs-pretty
 
 default-extensions: OverloadedStrings, LambdaCase
+
+build-tools: alex, happy
 
 library:
   source-dirs: src
