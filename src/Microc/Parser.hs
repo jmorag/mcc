@@ -91,19 +91,15 @@ fdeclP = do
   typ <- typeP
   name <- identifier
   formals <- formalsP
-  body' <- brackets $ many vdeclOrStatement
-  let locals = lefts body'
-      body = rights body'
+  void $ symbol "{"
+  locals <- many vdeclP
+  body <- many statementP
+  void $ symbol "}"
   return $ Function typ name formals locals body
-
-vdeclOrStatement :: Parser (Either Bind Statement)
-vdeclOrStatement = Left <$> vdeclP <|> Right <$> statementP
 
 formalsP :: Parser [Bind]
 formalsP = parens $ formalP `sepBy` comma
   where formalP = (,) <$> typeP <*> identifier
 
 programP :: Parser Program
-programP = sc >> ((,) <$> many (try vdeclP) <*> many fdeclP <* eof
-      <|> (,) <$> return [] <*> many fdeclP <* eof)
-
+programP = between sc eof $ (,) <$> many (try vdeclP) <*> many fdeclP
