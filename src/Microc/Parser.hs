@@ -1,10 +1,14 @@
-{-# LANGUAGE ApplicativeDo #-}
 module Microc.Parser (programP, runParser, parseTest') where
 
 import Microc.Ast
 import Microc.Scanner
 import Text.Megaparsec
 import Text.Megaparsec.Expr
+
+-- liftA2 f x y   = f <$> x <*> y
+-- liftA3 f x y z = f <$> x <*> y <*> z
+-- using these lifting functions creates less operator noise than writing out
+-- <*> and <$> everywhere
 import Control.Applicative (liftA2, liftA3)
 
 opTable :: [[Operator Parser Expr]]
@@ -47,13 +51,12 @@ vdeclP :: Parser Bind
 vdeclP = (,) <$> typeP <*> identifier <* semi
 
 statementP :: Parser Statement
-statementP = 
-      Expr   <$> exprP <* semi
-  <|> Return <$> (rword "return" *> exprMaybe <* semi)
-  <|> Block  <$> brackets (many statementP)
-  <|> ifP 
-  <|> forP 
-  <|> whileP
+statementP = Expr   <$> exprP <* semi
+         <|> Return <$> (rword "return" *> exprMaybe <* semi)
+         <|> Block  <$> brackets (many statementP)
+         <|> ifP 
+         <|> forP 
+         <|> whileP
 
 exprMaybe :: Parser Expr
 exprMaybe = option Noexpr exprP
