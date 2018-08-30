@@ -13,7 +13,6 @@ import Data.List (find)
 
 type Vars = M.Map (Text, VarKind) Type
 type Funcs = M.Map Text Function
-data VarKind = Global | Formal | Local deriving (Show, Eq, Ord)
 
 data Env = Env { vars     :: Vars
                , funcs    :: Funcs
@@ -63,23 +62,27 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
     unless (t1 == t2) (throwError "incompatible types in binary operation")
 
     let checkArith = unless (isNumeric t1) 
-          (throwError "incompatible types in arithmetic operation") >> return (t1, SBinop op lhs' rhs')
+          (throwError "incompatible types in arithmetic operation") >> 
+          return (t1, SBinop op lhs' rhs')
 
         checkBool  = unless (t1 == TyBool) 
-          (throwError "expected boolean expression") >> return (t1, SBinop op lhs' rhs')
+          (throwError "expected boolean expression") >> 
+          return (t1, SBinop op lhs' rhs')
     case op of 
       Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
       And -> checkBool; Or -> checkBool;
       -- remaining are relational operators
-      _ -> unless (isNumeric t1) (throwError "incompatible types in relational operation") >>
-           return (TyBool, SBinop op lhs' rhs')
+      _ -> do unless (isNumeric t1) $
+                throwError "incompatible types in relational operation"
+              return (TyBool, SBinop op lhs' rhs')
 
   Unop op e -> do
     e'@(ty, _) <- checkExpr e
     case op of
       Neg -> do unless (isNumeric ty) $ throwError "Negative bools are nonsense"
                 return (ty, SUnop Neg e')
-      Not -> do unless (ty == TyBool) $ throwError "Boolean negation needs booleans"
+      Not -> do unless (ty == TyBool) $ 
+                  throwError "Boolean negation needs booleans"
                 return (ty, SUnop Not e')
 
   Assign s e -> do
