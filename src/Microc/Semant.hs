@@ -24,19 +24,18 @@ type SemantS = ExceptT Text (State Env)
 tshow :: Show a => a -> Text
 tshow = T.pack . show
 
-guardInfo :: MonadError e m => Bool -> e -> m a -> m a
-guardInfo cond msg rest = if not cond then throwError msg else rest
-
 checkBinds :: VarKind -> [Bind] -> SemantS [Bind]
 checkBinds kind = mapM $ \case
-    (TyVoid, name) -> throwError $ 
-      T.unwords ["illegal void binding in", tshow kind, "variable", name]
-    (ty, name) -> do
-      vars <- gets vars
-      guardInfo (M.notMember (name, kind) vars)
-                (T.unwords ["Illegal duplicate", tshow kind, "binding", name]) $ do
-                modify $ \env -> env { vars = M.insert (name, kind) ty vars } 
-                return (ty, name)
+
+  (TyVoid, name) -> throwError $ 
+    T.unwords ["illegal void binding in", tshow kind, "variable", name]
+
+  (ty, name) -> do
+    vars <- gets vars
+    unless (M.notMember (name, kind) vars) $
+      throwError $ T.unwords ["Illegal duplicate", tshow kind, "binding", name]
+    modify $ \env -> env { vars = M.insert (name, kind) ty vars } 
+    return (ty, name)
 
 builtIns :: Funcs
 builtIns = M.fromList $ map toFunc
@@ -61,37 +60,34 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Binop op lhs rhs -> do
     lhs'@(t1, _) <- checkExpr lhs
     rhs'@(t2, _) <- checkExpr rhs
-    guardInfo (t1 == t2) "incompatible types in binary operation" $ do
+    unless (t1 == t2) (throwError "incompatible types in binary operation")
 
-      let checkArith = guardInfo (isNumeric t1)
-                       "incompatible types in arithmetic operation" $
-                       return (t1, SBinop op lhs' rhs')
+    let checkArith = unless (isNumeric t1) 
+          (throwError "incompatible types in arithmetic operation") >> return (t1, SBinop op lhs' rhs')
 
-          checkBool  = guardInfo (t1 == TyBool)
-                       "expected boolean expression" $
-                       return (t1, SBinop op lhs' rhs')
-      case op of 
-        Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
-        And -> checkBool; Or -> checkBool;
-        -- remaining are relational operators
-        _ -> guardInfo (isNumeric t1) 
-             "incompatible types in relational operation" $
-             return (TyBool, SBinop op lhs' rhs')
+        checkBool  = unless (t1 == TyBool) 
+          (throwError "expected boolean expression") >> return (t1, SBinop op lhs' rhs')
+    case op of 
+      Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
+      And -> checkBool; Or -> checkBool;
+      -- remaining are relational operators
+      _ -> unless (isNumeric t1) (throwError "incompatible types in relational operation") >>
+           return (TyBool, SBinop op lhs' rhs')
 
   Unop op e -> do
     e'@(ty, _) <- checkExpr e
     case op of
-      Neg -> guardInfo (isNumeric ty) "Negative bools are nonsense" $
-             return (ty, SUnop Neg e')
-      Not -> guardInfo (ty == TyBool) "Boolean negation needs booleans" $
-             return (ty, SUnop Not e')
+      Neg -> do unless (isNumeric ty) $ throwError "Negative bools are nonsense"
+                return (ty, SUnop Neg e')
+      Not -> do unless (ty == TyBool) $ throwError "Boolean negation needs booleans"
+                return (ty, SUnop Not e')
 
   Assign s e -> do
     rhs@(ty, _) <- checkExpr e
     (ty', _) <- checkExpr (Id s)
-    guardInfo (ty == ty') 
-     "Attempt to assign expression to var of incompatible type" $
-     return (ty, SAssign s rhs)
+    unless (ty == ty') $ 
+      throwError "Attempt to assign expression to var of incompatible type"
+    return (ty, SAssign s rhs)
     
   Call s es -> do
     funcs <- gets funcs
@@ -99,9 +95,9 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
       Nothing -> throwError $ "Undefined function " <> s
       Just f -> do
         es' <- mapM checkExpr es
-        guardInfo (map fst es' == map fst (formals f)) 
-                  ("Argument of wrong type in call of " <> name f) $
-                  return (typ f, SCall s es')
+        unless (map fst es' == map fst (formals f)) $ 
+          throwError ("Argument of wrong type in call of " <> name f)
+        return (typ f, SCall s es')
         
 checkStatement :: Statement -> SemantS SStatement
 checkStatement stmt = case stmt of
@@ -109,36 +105,34 @@ checkStatement stmt = case stmt of
 
   If pred cons alt -> do
     pred'@(ty, _) <- checkExpr pred
-    guardInfo (ty == TyBool) "Expected boolean expression" $ do
-      cons' <- checkStatement cons
-      alt'  <- checkStatement alt
-      return $ SIf pred' cons' alt'
+    unless (ty == TyBool) $ throwError "Expected boolean expression"
+    SIf pred' <$> checkStatement cons <*> checkStatement alt
     
   For init cond inc action -> do
     cond'@(ty, _) <- checkExpr cond
-    guardInfo (ty == TyBool) "Expected boolean expression" $ do
-      init' <- checkExpr init
-      inc'  <- checkExpr inc
-      action' <- checkStatement action
-      return $ SFor init' cond' inc' action'
+    unless (ty == TyBool) $ throwError "Expected boolean expression"
+    init' <- checkExpr init
+    inc'  <- checkExpr inc
+    action' <- checkStatement action
+    return $ SFor init' cond' inc' action'
 
   While cond action -> do
     cond'@(ty, _) <- checkExpr cond
-    guardInfo (ty == TyBool) "Expected boolean expression" $
-      SWhile cond' <$> checkStatement action
+    unless (ty == TyBool) $ throwError "Expected boolean expression"
+    SWhile cond' <$> checkStatement action
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr
     fun <- gets thisFunc
-    guardInfo (ty == typ fun) 
-      "Type of return expression inconsistent with declared type" $
-      return $ SReturn e
+    unless (ty == typ fun) $ 
+      throwError "Type of return expression inconsistent with declared type"
+    return $ SReturn e
 
-  Block sl -> 
+  Block sl -> do
     let flattened = flatten sl
-    in guardInfo (nothingFollowsRet flattened)
-       ("Nothing can follow a return: error in " <> tshow stmt) $
-       SBlock <$> mapM checkStatement sl
+    unless (nothingFollowsRet flattened) $ throwError
+       ("Nothing can follow a return: error in " <> tshow stmt)
+    SBlock <$> mapM checkStatement sl
     where
       flatten [] = []
       flatten (Block s:ss) = flatten (s ++ ss)
@@ -153,11 +147,11 @@ checkFunction :: Function -> SemantS SFunction
 checkFunction func = do
   -- add the fname to the table and check for conflicts
   funcs <- gets funcs
-  guardInfo (M.notMember (name func) funcs) 
-            ("Redeclaration of function " <> name func) $
-    -- add this func to symbol table
-    modify $ \env -> 
-      env { funcs = M.insert (name func) func funcs, thisFunc = func }
+  unless (M.notMember (name func) funcs) $
+    throwError ("Redeclaration of function " <> name func)
+  -- add this func to symbol table
+  modify $ \env -> 
+    env { funcs = M.insert (name func) func funcs, thisFunc = func }
 
   -- Save the symbol table prior to adding formal and local variables to it
   oldState <- get
@@ -181,7 +175,6 @@ checkFunction func = do
                                         , sbody = body''
                                         }
     _ -> error "Internal error - block didn't become a block?"
-
 
 checkProgram :: Program -> Either Text SProgram
 checkProgram (binds, funcs) = 
