@@ -1,10 +1,11 @@
+{-# LANGUAGE ApplicativeDo #-}
 module Microc.Parser (programP, runParser, parseTest') where
 
 import Microc.Ast
 import Microc.Scanner
 import Text.Megaparsec
 import Text.Megaparsec.Expr
-import Control.Monad (void)
+import Control.Applicative (liftA2, liftA3)
 
 opTable :: [[Operator Parser Expr]]
 opTable = 
@@ -29,8 +30,7 @@ termP :: Parser Expr
 termP = parens exprP
     <|> try (Fliteral <$> float)
     <|> Literal <$> int
-    <|> (BoolLit <$> ((rword "true" >> return True) 
-                 <|> (rword "false" >> return False)))
+    <|> BoolLit <$> (True <$ rword "true" <|> False <$ rword "false")
     <|> try (Call <$> identifier <*> parens (exprP `sepBy` comma))
     <|> Id <$> identifier
 
@@ -38,20 +38,19 @@ exprP :: Parser Expr
 exprP = makeExprParser termP opTable
 
 typeP :: Parser Type
-typeP = (rword "int"   >> return TyInt)
-    <|> (rword "bool"  >> return TyBool)
-    <|> (rword "float" >> return TyFloat)
-    <|> (rword "void"  >> return TyVoid)
+typeP = TyInt   <$ rword "int"
+    <|> TyBool  <$ rword "bool"
+    <|> TyFloat <$ rword "float"
+    <|> TyVoid  <$ rword "void"
 
 vdeclP :: Parser Bind
 vdeclP = (,) <$> typeP <*> identifier <* semi
 
--- Parses a single statement, not a block
 statementP :: Parser Statement
 statementP = 
-      Expr <$> exprP <* semi
+      Expr   <$> exprP <* semi
   <|> Return <$> (rword "return" *> exprMaybe <* semi)
-  <|> Block <$> brackets (many statementP)
+  <|> Block  <$> brackets (many statementP)
   <|> ifP 
   <|> forP 
   <|> whileP
@@ -60,45 +59,27 @@ exprMaybe :: Parser Expr
 exprMaybe = option Noexpr exprP
 
 ifP :: Parser Statement
-ifP = do    
-  rword "if"
-  cond <- parens exprP
-  then' <- statementP
-  else' <- option (Block []) $ rword "else" *> statementP
-  return $ If cond then' else'
-    
-    
+ifP = liftA3 If (rword "if" *> parens exprP) statementP maybeElse
+  where
+    maybeElse = option (Block []) (rword "else" *> statementP)
     
 forP :: Parser Statement
 forP = do
   rword "for"
-  void $ symbol "("
-  e1 <- exprMaybe
-  void semi
-  e2 <- exprP
-  void semi
-  e3 <- exprMaybe
-  void $ symbol ")"
-  body <- statementP
-  return $ For e1 e2 e3 body
+  (e1, e2, e3) <- parens $ 
+    liftA3 (,,) (exprMaybe <* semi) (exprP <* semi) exprMaybe
+  For e1 e2 e3 <$> statementP
 
 whileP :: Parser Statement
-whileP = While <$> (rword "while" *> parens exprP) <*> statementP
+whileP = liftA2 While (rword "while" *> parens exprP) statementP
 
 fdeclP :: Parser Function
-fdeclP = do
-  typ <- typeP
-  name <- identifier
-  formals <- formalsP
-  void $ symbol "{"
-  locals <- many vdeclP
-  body <- many statementP
-  void $ symbol "}"
-  return $ Function typ name formals locals body
+fdeclP = Function <$> 
+  typeP <*> identifier <*> formalsP <*> many vdeclP <*> many statementP
 
 formalsP :: Parser [Bind]
 formalsP = parens $ formalP `sepBy` comma
-  where formalP = (,) <$> typeP <*> identifier
+  where formalP = liftA2 (,) typeP identifier
 
 programP :: Parser Program
-programP = between sc eof $ (,) <$> many (try vdeclP) <*> many fdeclP
+programP = between sc eof $ liftA2 (,) (many $ try vdeclP) (many fdeclP)

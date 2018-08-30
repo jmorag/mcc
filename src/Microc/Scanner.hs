@@ -7,6 +7,7 @@ import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Text (Text)
 import qualified Data.Text as T
+import Control.Monad (void)
 
 type Parser = Parsec Void Text
 
@@ -28,11 +29,11 @@ parens = between (symbol "(") (symbol ")")
 brackets :: Parser a -> Parser a
 brackets = between (symbol "{") (symbol "}") 
 
-semi :: Parser Text
-semi = symbol ";"
+semi :: Parser ()
+semi = void $ symbol ";"
 
-comma :: Parser Text
-comma = symbol ","
+comma :: Parser ()
+comma = void $ symbol ","
 
 rword :: Text -> Parser ()
 rword w = (lexeme . try) (string w *> notFollowedBy alphaNumChar)
