@@ -78,7 +78,8 @@ whileP = liftA2 While (rword "while" *> parens exprP) statementP
 
 fdeclP :: Parser Function
 fdeclP = Function <$> 
-  typeP <*> identifier <*> formalsP <*> many vdeclP <*> many statementP
+  typeP <*> identifier <*> formalsP <*> 
+  (symbol "{" *> many vdeclP) <*> (many statementP <* symbol "}")
 
 formalsP :: Parser [Bind]
 formalsP = parens $ formalP `sepBy` comma
