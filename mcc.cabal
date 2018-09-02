@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0e088baddf3de1445f55ca5088a1b561fe46f67841bad1a53a8f4bfac09f57fd
+-- hash: baf6290fd6763004d4900ca8492f3f97a4e8b45af269a675e0f276ada798f6a6
 
 name:           mcc
 version:        0.1.0.0
@@ -30,7 +30,6 @@ library
       Microc.Sast
       Microc.Scanner
       Microc.Semant
-      Microc.Semant.Error
       Microc.Toplevel
   other-modules:
       Paths_mcc

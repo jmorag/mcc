@@ -23,7 +23,7 @@ runFile infile = do
   case parseTree of
     Left _ -> redirect $ parseTest' programP program
     Right ast -> case checkProgram ast of
-      Left err -> redirect $ T.putStrLn err
+      Left err -> redirect $ T.putStrLn . cs . show $ err
       Right sast -> do
         let llvmModule = codegenProgram sast
         redirect $ run llvmModule

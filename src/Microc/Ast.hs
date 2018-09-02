@@ -9,8 +9,6 @@ data Uop = Neg | Not deriving (Show, Eq)
 data Type = TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
 type Bind = (Type, Text)
 
-data VarKind = Global | Formal | Local deriving (Show, Eq, Ord)
-
 data Expr = 
     Literal Int
   | Fliteral Double

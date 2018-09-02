@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Semant (checkProgram) where
 
 import Microc.Ast
@@ -7,9 +8,23 @@ import qualified Data.Map as M
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe (isJust)
-import           Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text (Text)
 import Data.List (find)
+
+type Name = Text
+data SemantError = IllegalBinding Name BindingKind VarKind (Maybe Function)
+                 | UndefinedSymbol Name SymbolKind Expr
+                 | TypeError { expected :: Type, got :: Type, errorLoc :: Statement }
+                 | ArgError { nExpected :: Int, nGot :: Int, callSite :: Expr }
+                 | Redeclaration Name
+                 | NoMain
+                 | DeadCode Statement -- ^ For statements in a block following a return
+                 deriving (Show)
+
+data BindingKind = Duplicate | Void deriving (Show)
+data SymbolKind = Var | Func deriving (Show)
+
+data VarKind = Global | Formal | Local deriving (Show, Eq, Ord)
 
 type Vars = M.Map (Text, VarKind) Type
 type Funcs = M.Map Text Function
@@ -18,23 +33,21 @@ data Env = Env { vars     :: Vars
                , funcs    :: Funcs
                , thisFunc :: Function }
 
-type SemantS = ExceptT Text (State Env)
+type Semant = ExceptT SemantError (State Env)
 
-tshow :: Show a => a -> Text
-tshow = T.pack . show
+checkBinds :: VarKind -> [Bind] -> Semant [Bind]
+checkBinds kind binds = do
+  currentFunc <- if kind == Global then return Nothing else Just <$> gets thisFunc
+  forM binds $ \case
+    (TyVoid, name) ->
+      throwError $ IllegalBinding name Void kind currentFunc
 
-checkBinds :: VarKind -> [Bind] -> SemantS [Bind]
-checkBinds kind = mapM $ \case
-
-  (TyVoid, name) -> throwError $ 
-    T.unwords ["illegal void binding in", tshow kind, "variable", name]
-
-  (ty, name) -> do
-    vars <- gets vars
-    unless (M.notMember (name, kind) vars) $
-      throwError $ T.unwords ["Illegal duplicate", tshow kind, "binding", name]
-    modify $ \env -> env { vars = M.insert (name, kind) ty vars } 
-    return (ty, name)
+    (ty, name) -> do
+      vars <- gets vars
+      unless (M.notMember (name, kind) vars) $
+        throwError $ IllegalBinding name Duplicate kind currentFunc
+      modify $ \env -> env { vars = M.insert (name, kind) ty vars } 
+      return (ty, name)
 
 builtIns :: Funcs
 builtIns = M.fromList $ map toFunc
@@ -42,7 +55,7 @@ builtIns = M.fromList $ map toFunc
   where
     toFunc (name, ty) = (name, Function TyVoid name [(ty, "x")] [] [])
 
-checkExpr :: Expr -> SemantS SExpr
+checkExpr :: Expr -> Semant SExpr
 checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Literal i  -> return (TyInt, SLiteral i)
   Fliteral f -> return (TyFloat, SFliteral f)
@@ -53,67 +66,71 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
     vars <- gets vars
     let foundVars = map (\kind -> M.lookup (s, kind) vars) [Local, Formal, Global]
     case join $ find isJust foundVars of
-      Nothing -> throwError $ "Unbound variable " <> s
+      Nothing -> throwError $ UndefinedSymbol s Var expr
       Just ty -> return (ty, SId s)
 
   Binop op lhs rhs -> do
     lhs'@(t1, _) <- checkExpr lhs
     rhs'@(t2, _) <- checkExpr rhs
-    unless (t1 == t2) (throwError "incompatible types in binary operation")
+    unless (t1 == t2) $ throwError $ TypeError t1 t2 (Expr expr)
 
     let checkArith = unless (isNumeric t1) 
-          (throwError "incompatible types in arithmetic operation") >> 
+          (throwError $ TypeError TyInt t1 (Expr expr)) >> 
           return (t1, SBinop op lhs' rhs')
 
         checkBool  = unless (t1 == TyBool) 
-          (throwError "expected boolean expression") >> 
+          (throwError $ TypeError TyBool t1 (Expr expr)) >> 
           return (t1, SBinop op lhs' rhs')
     case op of 
       Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
       And -> checkBool; Or -> checkBool;
       -- remaining are relational operators
       _ -> do unless (isNumeric t1) $
-                throwError "incompatible types in relational operation"
+                throwError $ TypeError TyInt t1 (Expr expr)
               return (TyBool, SBinop op lhs' rhs')
 
   Unop op e -> do
     e'@(ty, _) <- checkExpr e
     case op of
-      Neg -> do unless (isNumeric ty) $ throwError "Negative bools are nonsense"
+      Neg -> do unless (isNumeric ty) $ throwError $ TypeError TyInt ty (Expr expr)
                 return (ty, SUnop Neg e')
-      Not -> do unless (ty == TyBool) $ 
-                  throwError "Boolean negation needs booleans"
+      Not -> do unless (ty == TyBool) $ throwError $ TypeError TyBool ty (Expr expr)
                 return (ty, SUnop Not e')
 
   Assign s e -> do
     rhs@(ty, _) <- checkExpr e
     (ty', _) <- checkExpr (Id s)
-    unless (ty == ty') $ 
-      throwError "Attempt to assign expression to var of incompatible type"
+    unless (ty == ty') $ throwError $ TypeError ty' ty (Expr expr)
     return (ty, SAssign s rhs)
     
   Call s es -> do
     funcs <- gets funcs
     case M.lookup s funcs of
-      Nothing -> throwError $ "Undefined function " <> s
+      Nothing -> throwError $ UndefinedSymbol s Func expr
       Just f -> do
         es' <- mapM checkExpr es
-        unless (map fst es' == map fst (formals f)) $ 
-          throwError ("Argument of wrong type in call of " <> name f)
+        -- Check that the correct number of arguments was provided
+        let nFormals = length (formals f)
+            nActuals = length es
+        unless (nFormals == nActuals) $ throwError $ ArgError nFormals nActuals expr
+        -- Check that types of arguments match
+        forM_ (zip (map fst es') (map fst (formals f))) $ \(callSite, defSite) ->
+          unless (callSite == defSite) $
+            throwError $ TypeError { expected = defSite, got = callSite, errorLoc = Expr expr }
         return (typ f, SCall s es')
         
-checkStatement :: Statement -> SemantS SStatement
+checkStatement :: Statement -> Semant SStatement
 checkStatement stmt = case stmt of
   Expr e -> SExpr <$> checkExpr e
 
   If pred cons alt -> do
     pred'@(ty, _) <- checkExpr pred
-    unless (ty == TyBool) $ throwError "Expected boolean expression"
+    unless (ty == TyBool) $ throwError $ TypeError TyBool ty stmt
     SIf pred' <$> checkStatement cons <*> checkStatement alt
     
   For init cond inc action -> do
     cond'@(ty, _) <- checkExpr cond
-    unless (ty == TyBool) $ throwError "Expected boolean expression"
+    unless (ty == TyBool) $ throwError $ TypeError TyBool ty stmt
     init' <- checkExpr init
     inc'  <- checkExpr inc
     action' <- checkStatement action
@@ -121,20 +138,19 @@ checkStatement stmt = case stmt of
 
   While cond action -> do
     cond'@(ty, _) <- checkExpr cond
-    unless (ty == TyBool) $ throwError "Expected boolean expression"
+    unless (ty == TyBool) $ throwError $ TypeError TyBool ty stmt
     SWhile cond' <$> checkStatement action
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr
     fun <- gets thisFunc
     unless (ty == typ fun) $ 
-      throwError "Type of return expression inconsistent with declared type"
+      throwError $ TypeError (typ fun) ty stmt
     return $ SReturn e
 
   Block sl -> do
     let flattened = flatten sl
-    unless (nothingFollowsRet flattened) $ throwError
-       ("Nothing can follow a return: error in " <> tshow stmt)
+    unless (nothingFollowsRet flattened) $ throwError (DeadCode stmt)
     SBlock <$> mapM checkStatement sl
     where
       flatten [] = []
@@ -146,12 +162,12 @@ checkStatement stmt = case stmt of
       nothingFollowsRet (s:ss) = 
         case s of Return _ -> False; _ -> nothingFollowsRet ss
 
-checkFunction :: Function -> SemantS SFunction    
+checkFunction :: Function -> Semant SFunction    
 checkFunction func = do
   -- add the fname to the table and check for conflicts
   funcs <- gets funcs
   unless (M.notMember (name func) funcs) $
-    throwError ("Redeclaration of function " <> name func)
+    throwError $ Redeclaration (name func)
   -- add this func to symbol table
   modify $ \env -> 
     env { funcs = M.insert (name func) func funcs, thisFunc = func }
@@ -179,7 +195,7 @@ checkFunction func = do
                                         }
     _ -> error "Internal error - block didn't become a block?"
 
-checkProgram :: Program -> Either Text SProgram
+checkProgram :: Program -> Either SemantError SProgram
 checkProgram (binds, funcs) = 
   evalState (runExceptT (checkProgram' (binds, funcs))) baseEnv
   where
@@ -196,5 +212,5 @@ checkProgram (binds, funcs) =
     globals <- checkBinds Global binds
     funcs' <- mapM checkFunction funcs
     case find (\f -> sname f == "main") funcs' of
-      Nothing -> throwError "Error, main function not defined"
+      Nothing -> throwError NoMain
       Just _ -> return (globals, funcs')

@@ -43,7 +43,7 @@ runOpts (Options action infile) = do
         Ast -> pPrint ast
         _ -> 
           case checkProgram ast of
-          Left err -> T.putStrLn err
+          Left err -> T.putStrLn . cs . show $ err
           Right sast -> 
             case action of
             Sast -> pPrint sast
