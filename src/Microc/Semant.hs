@@ -14,7 +14,7 @@ import Data.List (find)
 type Name = Text
 data SemantError = IllegalBinding Name BindingKind VarKind (Maybe Function)
                  | UndefinedSymbol Name SymbolKind Expr
-                 | TypeError { expected :: Type, got :: Type, errorLoc :: Statement }
+                 | TypeError { expected :: [Type], got :: Type, errorLoc :: Statement }
                  | ArgError { nExpected :: Int, nGot :: Int, callSite :: Expr }
                  | Redeclaration Name
                  | NoMain
@@ -72,35 +72,35 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
   Binop op lhs rhs -> do
     lhs'@(t1, _) <- checkExpr lhs
     rhs'@(t2, _) <- checkExpr rhs
-    unless (t1 == t2) $ throwError $ TypeError t1 t2 (Expr expr)
+    unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
 
     let checkArith = unless (isNumeric t1) 
-          (throwError $ TypeError TyInt t1 (Expr expr)) >> 
+          (throwError $ TypeError [TyInt, TyFloat] t1 (Expr expr)) >> 
           return (t1, SBinop op lhs' rhs')
 
         checkBool  = unless (t1 == TyBool) 
-          (throwError $ TypeError TyBool t1 (Expr expr)) >> 
+          (throwError $ TypeError [TyBool] t1 (Expr expr)) >> 
           return (t1, SBinop op lhs' rhs')
     case op of 
       Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
       And -> checkBool; Or -> checkBool;
       -- remaining are relational operators
       _ -> do unless (isNumeric t1) $
-                throwError $ TypeError TyInt t1 (Expr expr)
+                throwError $ TypeError [TyInt, TyFloat] t1 (Expr expr)
               return (TyBool, SBinop op lhs' rhs')
 
   Unop op e -> do
     e'@(ty, _) <- checkExpr e
     case op of
-      Neg -> do unless (isNumeric ty) $ throwError $ TypeError TyInt ty (Expr expr)
+      Neg -> do unless (isNumeric ty) $ throwError $ TypeError [TyInt, TyFloat] ty (Expr expr)
                 return (ty, SUnop Neg e')
-      Not -> do unless (ty == TyBool) $ throwError $ TypeError TyBool ty (Expr expr)
+      Not -> do unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty (Expr expr)
                 return (ty, SUnop Not e')
 
   Assign s e -> do
     rhs@(ty, _) <- checkExpr e
     (ty', _) <- checkExpr (Id s)
-    unless (ty == ty') $ throwError $ TypeError ty' ty (Expr expr)
+    unless (ty == ty') $ throwError $ TypeError [ty'] ty (Expr expr)
     return (ty, SAssign s rhs)
     
   Call s es -> do
@@ -116,7 +116,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
         -- Check that types of arguments match
         forM_ (zip (map fst es') (map fst (formals f))) $ \(callSite, defSite) ->
           unless (callSite == defSite) $
-            throwError $ TypeError { expected = defSite, got = callSite, errorLoc = Expr expr }
+            throwError $ TypeError { expected = [defSite], got = callSite, errorLoc = Expr expr }
         return (typ f, SCall s es')
         
 checkStatement :: Statement -> Semant SStatement
@@ -125,12 +125,12 @@ checkStatement stmt = case stmt of
 
   If pred cons alt -> do
     pred'@(ty, _) <- checkExpr pred
-    unless (ty == TyBool) $ throwError $ TypeError TyBool ty stmt
+    unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
     SIf pred' <$> checkStatement cons <*> checkStatement alt
     
   For init cond inc action -> do
     cond'@(ty, _) <- checkExpr cond
-    unless (ty == TyBool) $ throwError $ TypeError TyBool ty stmt
+    unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
     init' <- checkExpr init
     inc'  <- checkExpr inc
     action' <- checkStatement action
@@ -138,14 +138,14 @@ checkStatement stmt = case stmt of
 
   While cond action -> do
     cond'@(ty, _) <- checkExpr cond
-    unless (ty == TyBool) $ throwError $ TypeError TyBool ty stmt
+    unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
     SWhile cond' <$> checkStatement action
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr
     fun <- gets thisFunc
     unless (ty == typ fun) $ 
-      throwError $ TypeError (typ fun) ty stmt
+      throwError $ TypeError [typ fun] ty stmt
     return $ SReturn e
 
   Block sl -> do
