@@ -27,7 +27,6 @@ dependencies:
     - filepath
     - bytestring
     - prettyprinter
-    # Remove this later
     - pretty-simple
 
 default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase

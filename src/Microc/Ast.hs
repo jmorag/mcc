@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Ast where
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
@@ -76,3 +77,38 @@ instance Pretty Type where
 
 instance Pretty Bind where
   pretty (Bind ty nm) = pretty ty <+> pretty nm <> semi
+
+instance Pretty Expr where
+  pretty = \case
+    Literal i -> pretty i
+    Fliteral f -> pretty f
+    BoolLit b -> if b then "true" else "false"
+    Id t -> pretty t
+    -- Parenthesize binops so that we can see if precedence worked out
+    -- correctly in the pretty printed output
+    Binop op lhs rhs -> parens $ hsep [pretty lhs, pretty op, pretty rhs]
+    Unop op e -> pretty op <> pretty e
+    Assign n e -> pretty n <+> equals <+> pretty e
+    Call f es -> pretty f <> tupled (map pretty es)
+    Noexpr -> mempty
+
+instance Pretty Statement where
+  pretty = \case
+    Expr e -> pretty e <> semi
+    Block ss -> braces $ sep (map pretty ss)
+    Return e -> "return" <+> pretty e <> semi
+    -- Fix alignment later
+    If pred cons alt -> "if" <> parens (pretty pred) <+> pretty cons <+> prettyAlt
+      where prettyAlt = case alt of Block [] -> mempty; _ -> "else" <+> pretty alt
+    For init cond inc body -> "for" <> 
+      encloseSep lparen rparen semi [pretty init, pretty cond, pretty inc] 
+      <> pretty body
+    While cond body -> "while" <> parens (pretty cond) <> pretty body
+
+instance Pretty Function where
+  pretty (Function typ name formals locals body) = 
+    pretty typ <+> pretty name <> tupled (map pretty formals) <> 
+    braces (vsep (map pretty locals ++ map pretty body))
+
+instance Pretty Program where
+  pretty (Program binds funcs) = vsep (map pretty binds ++ map pretty funcs)

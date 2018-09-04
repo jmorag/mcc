@@ -8,6 +8,7 @@ import Data.String.Conversions
 import qualified Data.Text.IO as T
 
 import Text.Pretty.Simple
+import Data.Text.Prettyprint.Doc
 
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath }
@@ -39,7 +40,7 @@ runOpts (Options action infile) = do
     Left _ -> parseTest' programP program
     Right ast ->
       case action of 
-        Ast -> pPrint ast
+        Ast -> print $ pretty ast
         _ -> 
           case checkProgram ast of
           Left err -> T.putStrLn . cs . show $ err
