@@ -84,9 +84,7 @@ instance Pretty Expr where
     Fliteral f -> pretty f
     BoolLit b -> if b then "true" else "false"
     Id t -> pretty t
-    -- Parenthesize binops so that we can see if precedence worked out
-    -- correctly in the pretty printed output
-    Binop op lhs rhs -> parens $ hsep [pretty lhs, pretty op, pretty rhs]
+    Binop op lhs rhs -> hsep [pretty lhs, pretty op, pretty rhs]
     Unop op e -> pretty op <> pretty e
     Assign n e -> pretty n <+> equals <+> pretty e
     Call f es -> pretty f <> tupled (map pretty es)
@@ -95,27 +93,31 @@ instance Pretty Expr where
 instance Pretty Statement where
   pretty = \case
     Expr e -> pretty e <> semi
-    Block ss -> braces $ sep (map pretty ss)
+    Block ss -> lbrace <> hardline <> indent 4 (vsep (map pretty ss)) <> hardline <> rbrace
     Return e -> "return" <+> pretty e <> semi
-    -- Fix alignment later
-    If pred cons alt -> "if" <> parens (pretty pred) <> hardline <> indent 4 (pretty cons) <> prettyAlt
+    If pred cons alt -> "if" <+> parens (pretty pred) <+> pretty cons <> prettyAlt
       where 
         prettyAlt = 
           case alt of 
             Block [] -> mempty
-            _ -> hardline <> "else" <> hardline <> indent 4 (pretty alt)
-    For init cond inc body -> "for" <> 
+            _ -> hardline <> "else" <+> pretty alt
+    For init cond inc body -> "for" <+> 
       encloseSep lparen rparen semi [pretty init, pretty cond, pretty inc] 
-      <> indent 4 (pretty body)
-    While cond body -> "while" <> parens (pretty cond) <> hardline <> indent 4 (pretty body)
+      <+> pretty body
+    While cond body -> "while" <+> parens (pretty cond) <+> pretty body
 
 instance Pretty Function where
   pretty (Function typ name formals locals body) = 
-    pretty typ <+> pretty name <> tupled (map pretty formals) <+> lbrace <> hardline <>
-    indent 4 (sep (map decl locals ++ map pretty body)) <> line <> rbrace
+    pretty typ <+> pretty name <> tupled (map pretty formals) 
+    <> hardline <> lbrace <> hardline <>
+    indent 4 (hardsep (map decl locals ++ map pretty body)) 
+    <> hardline <> rbrace <> hardline
 
 instance Pretty Program where
-  pretty (Program binds funcs) = vsep (map decl binds ++ map pretty funcs)
+  pretty (Program binds funcs) = hardsep (map decl binds ++ map pretty funcs)
 
 decl :: Pretty a => a -> Doc ann
 decl bind = pretty bind <> semi
+
+hardsep :: [Doc ann] -> Doc ann
+hardsep = concatWith (\x y -> x <> hardline <> y)
