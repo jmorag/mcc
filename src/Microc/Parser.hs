@@ -48,7 +48,7 @@ typeP = TyInt   <$ rword "int"
     <|> TyVoid  <$ rword "void"
 
 vdeclP :: Parser Bind
-vdeclP = (,) <$> typeP <*> identifier <* semi
+vdeclP = Bind <$> typeP <*> identifier <* semi
 
 statementP :: Parser Statement
 statementP = Expr   <$> exprP <* semi
@@ -83,7 +83,7 @@ fdeclP = Function <$>
 
 formalsP :: Parser [Bind]
 formalsP = parens $ formalP `sepBy` comma
-  where formalP = liftA2 (,) typeP identifier
+  where formalP = liftA2 Bind typeP identifier
 
 programP :: Parser Program
-programP = between sc eof $ liftA2 (,) (many $ try vdeclP) (many fdeclP)
+programP = between sc eof $ liftA2 Program (many $ try vdeclP) (many fdeclP)

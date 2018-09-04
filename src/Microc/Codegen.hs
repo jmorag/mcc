@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Codegen (codegenProgram) where
 
 import qualified LLVM.AST.IntegerPredicate as IP
@@ -25,7 +26,7 @@ import Control.Monad.State
 import Data.String (fromString)
 
 import Microc.Sast
-import Microc.Ast (Type(..), Op(..), Uop(..), Bind)
+import Microc.Ast (Type(..), Op(..), Uop(..), Bind(..))
 
 import           Data.String.Conversions
 import qualified Data.Text as T
@@ -203,7 +204,7 @@ codegenFunc f = mdo
   state <- get
 
   let name = mkName (cs $ sname f)
-      mkParam (t, n) = (ltypeOfTyp t, L.ParameterName (cs n))
+      mkParam (Bind t n) = (ltypeOfTyp t, L.ParameterName (cs n))
       args = map mkParam (sformals f)
       retty = ltypeOfTyp (styp f)
 
@@ -213,14 +214,14 @@ codegenFunc f = mdo
         _entry <- L.block `L.named` "entry"
         -- Add the formal parameters to the map, allocate them on the stack,
         -- and then emit the necessary store instructions
-        forM_ pairs $ \(op, (_, n)) -> do
+        forM_ pairs $ \(op, Bind _ n) -> do
           let ltype = typeOf op
           addr <- L.alloca ltype Nothing 0
           L.store addr 0 op 
           modify $ M.insert n addr
         -- Same for the locals, except we do not emit the store instruction for
         -- them
-        forM_ (slocals f) $ \(t, n) -> do
+        forM_ (slocals f) $ \(Bind t n) -> do
           let ltype = ltypeOfTyp t
           addr <- L.alloca ltype Nothing 0
           modify $ M.insert n addr
@@ -245,7 +246,7 @@ emitBuiltIns = do
   modify $ M.insert "_floatFmt" floatFmt
 
 codegenGlobal :: Bind -> LLVM ()
-codegenGlobal (t, n) = do
+codegenGlobal (Bind t n) = do
   let name = mkName $ cs n
       typ  = ltypeOfTyp t
       initVal = C.Int 0 0

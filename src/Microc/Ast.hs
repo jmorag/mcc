@@ -42,7 +42,7 @@ data Function = Function
   }
   deriving (Show, Eq)
 
-data Program = Program [Bind] [Function]
+data Program = Program [Bind] [Function] deriving (Eq, Show)
 
 --------------------------------------------
 -- Pretty instances

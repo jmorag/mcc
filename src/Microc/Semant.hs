@@ -24,21 +24,21 @@ checkBinds :: VarKind -> [Bind] -> Semant [Bind]
 checkBinds kind binds = do
   currentFunc <- if kind == Global then return Nothing else Just <$> gets thisFunc
   forM binds $ \case
-    (TyVoid, name) ->
+    Bind TyVoid name ->
       throwError $ IllegalBinding name Void kind currentFunc
 
-    (ty, name) -> do
+    Bind ty name -> do
       vars <- gets vars
       unless (M.notMember (name, kind) vars) $
         throwError $ IllegalBinding name Duplicate kind currentFunc
       modify $ \env -> env { vars = M.insert (name, kind) ty vars } 
-      return (ty, name)
+      return $ Bind ty name
 
 builtIns :: Funcs
 builtIns = M.fromList $ map toFunc
   [("print", TyInt), ("printb", TyBool), ("printf", TyFloat), ("printbig", TyInt)]
   where
-    toFunc (name, ty) = (name, Function TyVoid name [(ty, "x")] [] [])
+    toFunc (name, ty) = (name, Function TyVoid name [Bind ty "x"] [] [])
 
 checkExpr :: Expr -> Semant SExpr
 checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
@@ -99,7 +99,7 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
             nActuals = length es
         unless (nFormals == nActuals) $ throwError $ ArgError nFormals nActuals expr
         -- Check that types of arguments match
-        forM_ (zip (map fst es') (map fst (formals f))) $ \(callSite, defSite) ->
+        forM_ (zip (map fst es') (map (\(Bind ty _) -> ty) (formals f))) $ \(callSite, defSite) ->
           unless (callSite == defSite) $
             throwError $ TypeError { expected = [defSite], got = callSite, errorLoc = Expr expr }
         return (typ f, SCall s es')
@@ -181,7 +181,7 @@ checkFunction func = do
     _ -> error "Internal error - block didn't become a block?"
 
 checkProgram :: Program -> Either SemantError SProgram
-checkProgram (binds, funcs) = 
+checkProgram (Program binds funcs) = 
   evalState (runExceptT (checkProgram' (binds, funcs))) baseEnv
   where
   baseEnv = Env { vars = M.empty
