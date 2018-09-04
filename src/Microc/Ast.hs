@@ -76,7 +76,7 @@ instance Pretty Type where
     TyVoid -> "void"
 
 instance Pretty Bind where
-  pretty (Bind ty nm) = pretty ty <+> pretty nm <> semi
+  pretty (Bind ty nm) = pretty ty <+> pretty nm
 
 instance Pretty Expr where
   pretty = \case
@@ -98,17 +98,24 @@ instance Pretty Statement where
     Block ss -> braces $ sep (map pretty ss)
     Return e -> "return" <+> pretty e <> semi
     -- Fix alignment later
-    If pred cons alt -> "if" <> parens (pretty pred) <+> pretty cons <+> prettyAlt
-      where prettyAlt = case alt of Block [] -> mempty; _ -> "else" <+> pretty alt
+    If pred cons alt -> "if" <> parens (pretty pred) <> hardline <> indent 4 (pretty cons) <> prettyAlt
+      where 
+        prettyAlt = 
+          case alt of 
+            Block [] -> mempty
+            _ -> hardline <> "else" <> hardline <> indent 4 (pretty alt)
     For init cond inc body -> "for" <> 
       encloseSep lparen rparen semi [pretty init, pretty cond, pretty inc] 
-      <> pretty body
-    While cond body -> "while" <> parens (pretty cond) <> pretty body
+      <> indent 4 (pretty body)
+    While cond body -> "while" <> parens (pretty cond) <> hardline <> indent 4 (pretty body)
 
 instance Pretty Function where
   pretty (Function typ name formals locals body) = 
-    pretty typ <+> pretty name <> tupled (map pretty formals) <> 
-    braces (vsep (map pretty locals ++ map pretty body))
+    pretty typ <+> pretty name <> tupled (map pretty formals) <+> lbrace <> hardline <>
+    indent 4 (sep (map decl locals ++ map pretty body)) <> line <> rbrace
 
 instance Pretty Program where
-  pretty (Program binds funcs) = vsep (map pretty binds ++ map pretty funcs)
+  pretty (Program binds funcs) = vsep (map decl binds ++ map pretty funcs)
+
+decl :: Pretty a => a -> Doc ann
+decl bind = pretty bind <> semi
