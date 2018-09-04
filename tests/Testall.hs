@@ -9,6 +9,8 @@ import Microc
 import           Data.String.Conversions
 import qualified Data.Text.IO as T
 import           Data.Text (Text)
+import           Data.Text.Prettyprint.Doc
+import           Data.Text.Prettyprint.Doc.Render.Text
 
 import System.IO.Silently
 import System.Environment
@@ -23,7 +25,7 @@ runFile infile = do
   case parseTree of
     Left _ -> redirect $ parseTest' programP program
     Right ast -> case checkProgram ast of
-      Left err -> redirect $ T.putStrLn . cs . show $ err
+      Left err -> redirect $ putDoc (pretty err)
       Right sast -> do
         let llvmModule = codegenProgram sast
         redirect $ run llvmModule

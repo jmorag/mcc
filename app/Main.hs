@@ -36,7 +36,7 @@ main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
 runOpts :: Options -> IO ()
 runOpts (Options action infile) = do 
   program <- T.readFile infile
-  let parseTree = runParser programP (show infile) program
+  let parseTree = runParser programP (cs infile) program
   case parseTree of
     Left _ -> parseTest' programP program
     Right ast ->
@@ -44,7 +44,7 @@ runOpts (Options action infile) = do
         Ast -> putDoc $ pretty ast
         _ -> 
           case checkProgram ast of
-          Left err -> T.putStrLn . cs . show $ err
+          Left err -> putDoc $ pretty err
           Right sast -> 
             case action of
             Sast -> pPrint sast
