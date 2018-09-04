@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal void formal b")
+Error: Illegal Void Formal binding, b in function bar

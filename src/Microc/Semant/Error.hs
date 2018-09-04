@@ -47,7 +47,7 @@ instance Pretty SemantError where
 
     ArgError nExpected nGot callSite ->
       "Argument error: function expected" <+> pretty nExpected <+>
-      "arguments, but was only called with" <+> pretty nGot <+> "arguments"
+      "arguments, but was called with" <+> pretty nGot <+> "arguments"
       <> ". Error occured in call:" <> hardline <> pretty callSite
 
     Redeclaration name -> "Error: redeclaration of function" <+> pretty name

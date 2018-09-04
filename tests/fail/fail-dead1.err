@@ -1,1 +1,6 @@
-Fatal error: exception Failure("nothing may follow a return")
+Error: nothing may follow a return. Error occured in statement:
+{
+    i = 15;
+    return i;
+    i = 32;
+}

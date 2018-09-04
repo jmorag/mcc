@@ -1,1 +1,2 @@
-Fatal error: exception Failure("expecting 2 arguments in foo(42, true, false)")
+Argument error: function expected 2 arguments, but was called with 3 arguments. Error occured in call:
+foo(42, true, false)

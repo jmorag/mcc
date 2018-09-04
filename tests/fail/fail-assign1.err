@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal assignment int = bool in i = false")
+Type error: expected one of [int] but got bool. Error occured in statement:
+i = false;

@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal argument found void expected bool in bar()")
+Type error: expected one of [bool] but got void. Error occured in statement:
+foo(42, bar());

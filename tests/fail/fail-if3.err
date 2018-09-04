@@ -1,1 +1,2 @@
-Fatal error: exception Failure("undeclared identifier bar")
+Undefined variable bar referenced in:
+bar

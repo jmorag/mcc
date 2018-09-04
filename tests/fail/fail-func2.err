@@ -1,1 +1,1 @@
-Fatal error: exception Failure("duplicate formal a")
+Error: Illegal Duplicate Formal binding, a in function bar

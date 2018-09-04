@@ -1,1 +1,2 @@
-Fatal error: exception Failure("unrecognized function foo")
+Undefined function foo referenced in:
+foo()

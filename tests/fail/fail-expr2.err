@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal binary operator bool + int in b + a")
+Type error: expected one of [bool] but got int. Error occured in statement:
+b + a;

@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal void local b")
+Error: Illegal Void Local binding, b in function bar

@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal binary operator float && float in -3.5 && 2.5")
+Type error: expected one of [bool] but got float. Error occured in statement:
+-3.5 && 2.5;

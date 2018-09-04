@@ -1,1 +1,2 @@
-Fatal error: exception Failure("undeclared identifier foo")
+Undefined variable foo referenced in:
+foo

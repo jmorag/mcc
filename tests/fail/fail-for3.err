@@ -1,1 +1,4 @@
-Fatal error: exception Failure("expected Boolean expression in i")
+Type error: expected one of [bool] but got int. Error occured in statement:
+for (i = 0;i;i = i + 1) {
+    
+}

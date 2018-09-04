@@ -1,1 +1,1 @@
-Fatal error: exception Failure("duplicate function bar")
+Error: redeclaration of function bar

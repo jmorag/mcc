@@ -1,1 +1,2 @@
-Fatal error: exception Failure("return gives bool expected int in true")
+Type error: expected one of [int] but got bool. Error occured in statement:
+return true;

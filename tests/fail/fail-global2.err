@@ -1,1 +1,1 @@
-Fatal error: exception Failure("duplicate global b")
+Error: Illegal Duplicate Global binding, b 

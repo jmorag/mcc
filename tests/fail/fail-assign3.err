@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal assignment int = void in i = myvoid()")
+Type error: expected one of [int] but got void. Error occured in statement:
+i = myvoid();

@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal void global a")
+Error: Illegal Void Global binding, a 

@@ -1,1 +1,4 @@
-Fatal error: exception Failure("expected Boolean expression in 42")
+Type error: expected one of [bool] but got int. Error occured in statement:
+while (42) {
+    i = i + 1;
+}

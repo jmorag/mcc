@@ -1,1 +1,2 @@
-Fatal error: exception Failure("illegal argument found int expected bool in 42")
+Type error: expected one of [bool] but got int. Error occured in statement:
+foo(42, 42);

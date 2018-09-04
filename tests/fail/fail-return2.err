@@ -1,1 +1,2 @@
-Fatal error: exception Failure("return gives int expected void in 42")
+Type error: expected one of [void] but got int. Error occured in statement:
+return 42;
