@@ -1,30 +1,15 @@
-{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Semant (checkProgram) where
 
 import Microc.Ast
 import Microc.Sast
+import Microc.Semant.Error
 import qualified Data.Map as M
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Maybe (isJust)
 import Data.Text (Text)
 import Data.List (find)
-
-type Name = Text
-data SemantError = IllegalBinding Name BindingKind VarKind (Maybe Function)
-                 | UndefinedSymbol Name SymbolKind Expr
-                 | TypeError { expected :: [Type], got :: Type, errorLoc :: Statement }
-                 | ArgError { nExpected :: Int, nGot :: Int, callSite :: Expr }
-                 | Redeclaration Name
-                 | NoMain
-                 | DeadCode Statement -- ^ For statements in a block following a return
-                 deriving (Show)
-
-data BindingKind = Duplicate | Void deriving (Show)
-data SymbolKind = Var | Func deriving (Show)
-
-data VarKind = Global | Formal | Local deriving (Show, Eq, Ord)
 
 type Vars = M.Map (Text, VarKind) Type
 type Funcs = M.Map Text Function

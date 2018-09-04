@@ -1,5 +1,6 @@
 module Microc.Ast where
-import           Data.Text (Text)
+import Data.Text (Text)
+import Data.Text.Prettyprint.Doc
 
 data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or deriving (Show, Eq)
@@ -7,7 +8,7 @@ data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 data Uop = Neg | Not deriving (Show, Eq)
 
 data Type = TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
-type Bind = (Type, Text)
+data Bind = Bind Type Text deriving (Show, Eq)
 
 data Expr = 
     Literal Int
@@ -41,4 +42,37 @@ data Function = Function
   }
   deriving (Show, Eq)
 
-type Program = ([Bind], [Function])
+data Program = Program [Bind] [Function]
+
+--------------------------------------------
+-- Pretty instances
+--------------------------------------------
+instance Pretty Op where
+  pretty = \case
+    Add -> "+"
+    Sub -> "-"
+    Mult -> "*"
+    Div -> "/"
+    Equal -> "=="
+    Neq -> "!="
+    Less -> "<"
+    Leq -> "<="
+    Greater -> ">"
+    Geq -> ">="
+    And -> "&&"
+    Or -> "||"
+    
+instance Pretty Uop where
+  pretty = \case
+    Neg -> "-"
+    Not -> "!"
+
+instance Pretty Type where
+  pretty = \case
+    TyInt -> "int"
+    TyBool -> "bool"
+    TyFloat -> "float"
+    TyVoid -> "void"
+
+instance Pretty Bind where
+  pretty (Bind ty nm) = pretty ty <+> pretty nm <> semi

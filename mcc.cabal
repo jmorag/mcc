@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: baf6290fd6763004d4900ca8492f3f97a4e8b45af269a675e0f276ada798f6a6
+-- hash: d17c3137664dd4e24f08dc8a01253c702c0f2b41c6feff5f00abd62521c1fa0b
 
 name:           mcc
 version:        0.1.0.0
@@ -30,12 +30,13 @@ library
       Microc.Sast
       Microc.Scanner
       Microc.Semant
+      Microc.Semant.Error
       Microc.Toplevel
   other-modules:
       Paths_mcc
   hs-source-dirs:
       src
-  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
+  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
@@ -48,6 +49,7 @@ library
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
     , pretty-simple
+    , prettyprinter
     , process
     , string-conversions
     , text
@@ -60,7 +62,7 @@ executable mcc
       Paths_mcc
   hs-source-dirs:
       app
-  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
+  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
@@ -75,6 +77,7 @@ executable mcc
     , mtl >=2.2 && <=3
     , optparse-applicative
     , pretty-simple
+    , prettyprinter
     , process
     , string-conversions
     , text
@@ -88,7 +91,7 @@ test-suite testall
       Paths_mcc
   hs-source-dirs:
       tests
-  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances
+  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
@@ -102,6 +105,7 @@ test-suite testall
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
     , pretty-simple
+    , prettyprinter
     , process
     , silently
     , string-conversions
