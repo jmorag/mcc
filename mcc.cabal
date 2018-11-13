@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bcf264ce2ee57a0ce99e3ef1abc9209adb6b15b8a7529aa9e9fc291fcc1d2508
+-- hash: 8398562544cd14ece0b8e5459c9ec6b2754c93e2440f5af7e334f5e1d3760181
 
 name:           mcc
 version:        0.1.0.0
@@ -26,6 +26,7 @@ library
       Microc
       Microc.Ast
       Microc.Codegen
+      Microc.CodegenUtils
       Microc.Parser
       Microc.Sast
       Microc.Scanner

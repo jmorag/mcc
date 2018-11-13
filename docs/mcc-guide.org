@@ -1,0 +1,5 @@
+* A guided tour of mcc (MicroC Compiler)
+** Introduction
+   In this series, we will explore how to write a compiler for a small subset of C to LLVM in Haskell. Our language, MicroC, will consist of concepts from C including local and global variables, functions, the use of native ~int~, ~bool~, and ~float~ types, and control flow. Notably absent from MicroC are pointers and structs, although they are easy extensions to the compiler.
+*** Why another LLVM tutorial?
+    Stephen Diehl's [[http://www.stephendiehl.com/llvm/][kaleidescope]] provides an excellent introduction to building a simple language using Haskell and LLVM. However, it uses a slightly older version of LLVM than is currently available.
