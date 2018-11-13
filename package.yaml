@@ -18,8 +18,6 @@ dependencies:
     - mtl >= 2.2 && <= 3
     - containers
     - text
-    - llvm-hs-pure >= 6.1 && < 7
-    - llvm-hs-pretty
     - string-conversions
     - directory
     - process
@@ -28,6 +26,8 @@ dependencies:
     - bytestring
     - prettyprinter
     - pretty-simple
+    - llvm-hs-pure
+    - llvm-hs-pretty
 
 default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
 

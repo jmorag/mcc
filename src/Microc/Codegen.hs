@@ -16,7 +16,6 @@ import qualified LLVM.IRBuilder.Module as L
 import qualified LLVM.IRBuilder.Monad as L
 import qualified LLVM.IRBuilder.Instruction as L
 import qualified LLVM.IRBuilder.Constant as L
-import qualified Microc.CodegenUtils as L
 import LLVM.Prelude (ShortByteString)
 
 import qualified Data.Map as M
@@ -38,8 +37,6 @@ type Env = M.Map Text AST.Operand
 -- module and builder parameters to every function
 type LLVM = L.ModuleBuilderT (State Env)
 type Codegen = L.IRBuilderT LLVM
-
-instance L.MonadModuleBuilder m => L.MonadModuleBuilder (L.IRBuilderT m)
 
 instance ConvertibleStrings Text ShortByteString where
   convertString = fromString . T.unpack

@@ -39,7 +39,7 @@ packages:
 - '.'
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps: [llvm-hs-pure-7.0.0, llvm-hs-pretty-0.6.1.0]
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
@@ -68,4 +68,4 @@ packages:
 nix:
     enable: false
     pure: true
-    packages: [llvm_6, clang_6]
+    packages: [llvm_7, clang_7]

@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8398562544cd14ece0b8e5459c9ec6b2754c93e2440f5af7e334f5e1d3760181
+-- hash: a179746806614f4f76eed68b9299566fb865c123802b25983699b76bc4803636
 
 name:           mcc
 version:        0.1.0.0
@@ -26,7 +26,6 @@ library
       Microc
       Microc.Ast
       Microc.Codegen
-      Microc.CodegenUtils
       Microc.Parser
       Microc.Sast
       Microc.Scanner
@@ -46,7 +45,7 @@ library
     , directory
     , filepath
     , llvm-hs-pretty
-    , llvm-hs-pure >=6.1 && <7
+    , llvm-hs-pure
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
     , pretty-simple
@@ -72,7 +71,7 @@ executable mcc
     , directory
     , filepath
     , llvm-hs-pretty
-    , llvm-hs-pure >=6.1 && <7
+    , llvm-hs-pure
     , mcc
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
@@ -101,7 +100,7 @@ test-suite testall
     , directory
     , filepath
     , llvm-hs-pretty
-    , llvm-hs-pure >=6.1 && <7
+    , llvm-hs-pure
     , mcc
     , megaparsec >=6.4.1 && <7
     , mtl >=2.2 && <=3
