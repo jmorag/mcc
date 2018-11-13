@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d17c3137664dd4e24f08dc8a01253c702c0f2b41c6feff5f00abd62521c1fa0b
+-- hash: bcf264ce2ee57a0ce99e3ef1abc9209adb6b15b8a7529aa9e9fc291fcc1d2508
 
 name:           mcc
 version:        0.1.0.0
@@ -107,7 +107,6 @@ test-suite testall
     , pretty-simple
     , prettyprinter
     , process
-    , silently
     , string-conversions
     , tasty
     , tasty-golden

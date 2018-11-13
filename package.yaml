@@ -48,5 +48,4 @@ tests:
     dependencies:
         - tasty
         - tasty-golden
-        - silently
         - mcc
