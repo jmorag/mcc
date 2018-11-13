@@ -24,7 +24,7 @@ addons:
   apt:
     packages:
       - libgmp-dev
-      - llvm-6.0
+      # - llvm-6.0
 
 before_install:
 # Download and unpack the stack executable
