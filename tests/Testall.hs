@@ -39,11 +39,11 @@ passing = do
   mcFiles <- findByExtension [".mc"] "tests/pass"
   return $ testGroup "pass"
     [ goldenVsString (takeBaseName mcFile) outfile (cs <$> runFile mcFile)
-      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".out" ]
+      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".golden" ]
 
 failing :: IO TestTree
 failing = do
   mcFiles <- findByExtension [".mc"] "tests/fail"
   return $ testGroup "fail"
     [ goldenVsString (takeBaseName mcFile) outfile (cs <$> runFile mcFile)
-      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".err" ]
+      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".golden" ]
