@@ -11,31 +11,22 @@ import qualified Data.Text.IO as T
 import           Data.Text (Text)
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
+import           Text.Megaparsec (parseErrorPretty')
 
-import System.IO.Silently
-import System.Environment
-
--- | Given a microc file, attempt to compile and execute it and write the
--- results to a new file to be compared with what should be the correct output
+-- | Given a microc file, attempt to compile and execute it and read the
+-- results to be compared with what should be the correct output
 runFile :: FilePath -> IO Text
 runFile infile = do
   program <- T.readFile infile
   let parseTree = runParser programP (cs infile) program
-      redirect action = cs <$> capture_ action
   case parseTree of
-    Left _ -> redirect $ parseTest' programP program
+    Left e -> return . cs $ parseErrorPretty' program e
     Right ast -> case checkProgram ast of
-      Left err -> redirect $ putDoc (pretty err)
-      Right sast -> do
-        let llvmModule = codegenProgram sast
-        redirect $ run llvmModule
+      Left err -> return . renderStrict $ layoutPretty defaultLayoutOptions (pretty err)
+      Right sast -> run (codegenProgram sast)
 
 main :: IO ()
-main = do 
-  -- Having all tests run in parallel causes strange problems, so we restrict
-  -- them to run sequentially
-  setEnv "TASTY_NUM_THREADS" "1"
-  defaultMain =<< goldenTests
+main = defaultMain =<< goldenTests
 
 -- | All of the test cases
 -- General structure taken from 
