@@ -11,6 +11,8 @@ import Text.Pretty.Simple
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 
+import Text.Megaparsec (parseErrorPretty')
+
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath }
 
@@ -34,23 +36,22 @@ main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
     withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
 runOpts :: Options -> IO ()
-runOpts (Options action infile) = do 
+runOpts (Options action infile) = do
   program <- T.readFile infile
   let parseTree = runParser programP (cs infile) program
   case parseTree of
-    Left _ -> parseTest' programP program
+    Left e -> putStrLn $ parseErrorPretty' program e
     Right ast ->
-      case action of 
+      case action of
         Ast -> putDoc $ pretty ast
-        _ -> 
+        _ ->
           case checkProgram ast of
-          Left err -> putDoc $ pretty err
-          Right sast -> 
-            case action of
-            Sast -> pPrint sast
-            LLVM -> T.putStrLn . cs . ppllvm $ codegenProgram sast
-            Compile outfile -> do
+            Left err -> putDoc $ pretty err
+            Right sast ->
               let llvm = codegenProgram sast
-              compile llvm outfile
-            Run -> run (codegenProgram sast)
-            Ast -> error "unreachable"
+               in case action of
+                    Sast -> pPrint sast
+                    LLVM -> T.putStrLn . cs . ppllvm $ llvm
+                    Compile outfile -> compile llvm outfile
+                    Run -> run llvm >>= T.putStr
+                    Ast -> error "unreachable"
