@@ -26,8 +26,8 @@ symbol = L.symbol sc
 parens :: Parser a -> Parser a
 parens = between (symbol "(") (symbol ")")
 
-brackets :: Parser a -> Parser a
-brackets = between (symbol "{") (symbol "}") 
+braces :: Parser a -> Parser a
+braces = between (symbol "{") (symbol "}") 
 
 semi :: Parser ()
 semi = void $ symbol ";"

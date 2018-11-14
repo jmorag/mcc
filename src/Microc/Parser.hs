@@ -1,4 +1,4 @@
-module Microc.Parser (programP, runParser, parseTest') where
+module Microc.Parser (programP, runParser) where
 
 import Microc.Ast
 import Microc.Scanner
@@ -53,7 +53,7 @@ vdeclP = Bind <$> typeP <*> identifier <* semi
 statementP :: Parser Statement
 statementP = Expr   <$> exprP <* semi
          <|> Return <$> (rword "return" *> exprMaybe <* semi)
-         <|> Block  <$> brackets (many statementP)
+         <|> Block  <$> braces (many statementP)
          <|> ifP 
          <|> forP 
          <|> whileP
