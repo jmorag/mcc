@@ -71,6 +71,7 @@ codegenSexpr (TyFloat, SBinop op lhs rhs) = do
   rhs' <- codegenSexpr rhs
   (case op of Add -> L.fadd; Sub -> L.fsub; 
               Mult -> L.fmul; Div -> L.fdiv;
+              Power -> error "Not yet implemented";
               _ -> error "Internal error - semant failed") lhs' rhs'
 codegenSexpr (TyBool, SBinop op lhs@(TyInt, _) rhs) = do
   lhs' <- codegenSexpr lhs

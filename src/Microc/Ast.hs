@@ -3,7 +3,7 @@ module Microc.Ast where
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc
 
-data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
+data Op = Add | Sub | Mult | Div | Power | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or deriving (Show, Eq)
 
 data Uop = Neg | Not deriving (Show, Eq)
@@ -54,6 +54,7 @@ instance Pretty Op where
     Sub -> "-"
     Mult -> "*"
     Div -> "/"
+    Power -> "**"
     Equal -> "=="
     Neq -> "!="
     Less -> "<"

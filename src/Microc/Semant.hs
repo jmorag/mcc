@@ -66,8 +66,14 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
         checkBool  = unless (t1 == TyBool) 
           (throwError $ TypeError [TyBool] t1 (Expr expr)) >> 
           return (t1, SBinop op lhs' rhs')
+
+        checkFloat = unless (t1 == TyFloat) 
+          (throwError $ TypeError [TyFloat] t1 (Expr expr)) >> 
+          return (t1, SBinop op lhs' rhs')
+
     case op of 
       Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
+      Power -> checkFloat;
       And -> checkBool; Or -> checkBool;
       -- remaining are relational operators
       _ -> do unless (isNumeric t1) $

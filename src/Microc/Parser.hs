@@ -14,6 +14,7 @@ import Control.Applicative (liftA2, liftA3)
 opTable :: [[Operator Parser Expr]]
 opTable = 
   [ [unary Neg "-", unary Not "!"]
+  , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add  "+", infixL Sub "-"]
   , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]
@@ -29,6 +30,7 @@ opTable =
         -- the * and ** operators become actually important.
         unary  op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
         infixL op sym = InfixL $ Binop op <$ symbol sym
+        infixR op sym = InfixR $ Binop op <$ symbol sym
 
 termP :: Parser Expr
 termP = parens exprP
