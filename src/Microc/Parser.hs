@@ -45,43 +45,31 @@ termP :: Parser Expr
 termP =
   parens exprP
     <|> try (Fliteral <$> float)
-    <|> Literal
-    <$> int
-    <|> BoolLit
-    <$> (True <$ rword "true" <|> False <$ rword "false")
+    <|> Literal <$> int
+    <|> BoolLit <$> (True <$ rword "true" <|> False <$ rword "false")
     <|> try (Call <$> identifier <*> parens (exprP `sepBy` comma))
-    <|> Id
-    <$> identifier
+    <|> Id <$> identifier
 
 exprP :: Parser Expr
 exprP = makeExprParser termP opTable
 
 typeP :: Parser Type
-typeP =
-  TyInt
-    <$  rword "int"
-    <|> TyBool
-    <$  rword "bool"
-    <|> TyFloat
-    <$  rword "float"
-    <|> TyVoid
-    <$  rword "void"
+typeP = TyInt   <$  rword "int"
+    <|> TyBool  <$  rword "bool"
+    <|> TyFloat <$  rword "float"
+    <|> TyVoid  <$  rword "void"
 
 vdeclP :: Parser Bind
 vdeclP = Bind <$> typeP <*> identifier <* semi
 
 statementP :: Parser Statement
-statementP =
-  Expr
-    <$> exprP
-    <*  semi
-    <|> Return
-    <$> (rword "return" *> exprMaybe <* semi)
-    <|> Block
-    <$> braces (many statementP)
-    <|> ifP
-    <|> forP
-    <|> whileP
+statementP = Expr <$> exprP <*  semi
+  <|> Return <$> (rword "return" *> exprMaybe <* semi)
+  <|> Block  <$> braces (many statementP)
+  <|> ifP
+  <|> forP
+  <|> whileP
+
 
 exprMaybe :: Parser Expr
 exprMaybe = option Noexpr exprP

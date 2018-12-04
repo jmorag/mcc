@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Microc.Scanner where
 
 import           Data.Void
