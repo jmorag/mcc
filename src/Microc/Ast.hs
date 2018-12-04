@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Ast where
-import Data.Text (Text)
-import Data.Text.Prettyprint.Doc
+import           Data.Text                      ( Text )
+import           Data.Text.Prettyprint.Doc
 
 data Op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
           And | Or deriving (Show, Eq)
@@ -11,7 +11,7 @@ data Uop = Neg | Not deriving (Show, Eq)
 data Type = TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
 data Bind = Bind Type Text deriving (Show, Eq)
 
-data Expr = 
+data Expr =
     Literal Int
   | Fliteral Double
   | BoolLit Bool
@@ -24,7 +24,7 @@ data Expr =
   deriving (Show, Eq)
 
 
-data Statement = 
+data Statement =
     Expr Expr
   | Block [Statement]
   | Return Expr
@@ -62,7 +62,7 @@ instance Pretty Op where
     Geq -> ">="
     And -> "&&"
     Or -> "||"
-    
+
 instance Pretty Uop where
   pretty = \case
     Neg -> "-"
@@ -96,21 +96,21 @@ instance Pretty Statement where
     Block ss -> lbrace <> hardline <> indent 4 (vsep (map pretty ss)) <> hardline <> rbrace
     Return e -> "return" <+> pretty e <> semi
     If pred cons alt -> "if" <+> parens (pretty pred) <+> pretty cons <> prettyAlt
-      where 
-        prettyAlt = 
-          case alt of 
+      where
+        prettyAlt =
+          case alt of
             Block [] -> mempty
             _ -> hardline <> "else" <+> pretty alt
-    For init cond inc body -> "for" <+> 
-      encloseSep lparen rparen semi [pretty init, pretty cond, pretty inc] 
+    For init cond inc body -> "for" <+>
+      encloseSep lparen rparen semi [pretty init, pretty cond, pretty inc]
       <+> pretty body
     While cond body -> "while" <+> parens (pretty cond) <+> pretty body
 
 instance Pretty Function where
-  pretty (Function typ name formals locals body) = 
-    pretty typ <+> pretty name <> tupled (map pretty formals) 
+  pretty (Function typ name formals locals body) =
+    pretty typ <+> pretty name <> tupled (map pretty formals)
     <> hardline <> lbrace <> hardline <>
-    indent 4 (hardsep (map decl locals ++ map pretty body)) 
+    indent 4 (hardsep (map decl locals ++ map pretty body))
     <> hardline <> rbrace <> hardline
 
 instance Pretty Program where

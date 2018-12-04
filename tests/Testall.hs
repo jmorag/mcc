@@ -1,17 +1,22 @@
 module Main where
 
-import Test.Tasty (defaultMain, TestTree, testGroup)
-import Test.Tasty.Golden
-import System.FilePath (takeBaseName, replaceExtension)
+import           Test.Tasty                     ( defaultMain
+                                                , TestTree
+                                                , testGroup
+                                                )
+import           Test.Tasty.Golden
+import           System.FilePath                ( takeBaseName
+                                                , replaceExtension
+                                                )
 
-import Microc
+import           Microc
 
 import           Data.String.Conversions
-import qualified Data.Text.IO as T
-import           Data.Text (Text)
+import qualified Data.Text.IO                  as T
+import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
-import           Text.Megaparsec (parseErrorPretty')
+import           Text.Megaparsec                ( parseErrorPretty' )
 
 -- | Given a microc file, attempt to compile and execute it and read the
 -- results to be compared with what should be the correct output
@@ -20,9 +25,10 @@ runFile infile = do
   program <- T.readFile infile
   let parseTree = runParser programP (cs infile) program
   case parseTree of
-    Left e -> return . cs $ parseErrorPretty' program e
+    Left  e   -> return . cs $ parseErrorPretty' program e
     Right ast -> case checkProgram ast of
-      Left err -> return . renderStrict $ layoutPretty defaultLayoutOptions (pretty err)
+      Left err ->
+        return . renderStrict $ layoutPretty defaultLayoutOptions (pretty err)
       Right sast -> run (codegenProgram sast)
 
 main :: IO ()
@@ -37,13 +43,19 @@ goldenTests = testGroup "all" <$> sequence [passing, failing]
 passing :: IO TestTree
 passing = do
   mcFiles <- findByExtension [".mc"] "tests/pass"
-  return $ testGroup "pass"
+  return $ testGroup
+    "pass"
     [ goldenVsString (takeBaseName mcFile) outfile (cs <$> runFile mcFile)
-      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".golden" ]
+    | mcFile <- mcFiles
+    , let outfile = replaceExtension mcFile ".golden"
+    ]
 
 failing :: IO TestTree
 failing = do
   mcFiles <- findByExtension [".mc"] "tests/fail"
-  return $ testGroup "fail"
+  return $ testGroup
+    "fail"
     [ goldenVsString (takeBaseName mcFile) outfile (cs <$> runFile mcFile)
-      | mcFile <- mcFiles, let outfile = replaceExtension mcFile ".golden" ]
+    | mcFile <- mcFiles
+    , let outfile = replaceExtension mcFile ".golden"
+    ]

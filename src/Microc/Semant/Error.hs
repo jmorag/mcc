@@ -1,8 +1,8 @@
 module Microc.Semant.Error where
 
-import Microc.Ast
-import Data.Text (Text)
-import Data.Text.Prettyprint.Doc
+import           Microc.Ast
+import           Data.Text                      ( Text )
+import           Data.Text.Prettyprint.Doc
 
 type Name = Text
 data SemantError = IllegalBinding Name BindingKind VarKind (Maybe Function)
@@ -32,13 +32,13 @@ instance Pretty BindingKind where
 
 instance Pretty SemantError where
   pretty = \case
-    IllegalBinding nm bindKind varKind func -> 
-      "Error: Illegal" <+> pretty bindKind <+> pretty varKind <+> 
-      "binding," <+> pretty nm <+> 
+    IllegalBinding nm bindKind varKind func ->
+      "Error: Illegal" <+> pretty bindKind <+> pretty varKind <+>
+      "binding," <+> pretty nm <+>
       maybe mempty (\f -> "in function" <+> pretty (name f)) func
 
     UndefinedSymbol nm symKind expr ->
-      "Undefined" <+> pretty symKind <+> pretty nm <+> 
+      "Undefined" <+> pretty symKind <+> pretty nm <+>
       "referenced in:" <> hardline <> pretty expr
 
     TypeError expected got stmt ->
@@ -54,6 +54,6 @@ instance Pretty SemantError where
 
     NoMain -> "Error: main function not defined"
 
-    DeadCode stmt -> 
+    DeadCode stmt ->
       "Error: nothing may follow a return. Error occured in statement:" <>
       hardline <> pretty stmt

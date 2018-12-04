@@ -1,10 +1,10 @@
 module Microc.Sast where
 
 import           Microc.Ast
-import           Data.Text (Text)
+import           Data.Text                      ( Text )
 
 type SExpr = (Type, SExpr')
-data SExpr' = 
+data SExpr' =
     SLiteral Int
   | SFliteral Double
   | SBoolLit Bool
@@ -18,7 +18,7 @@ data SExpr' =
 
 data SStatement =
     SExpr SExpr
-  | SBlock [SStatement] 
+  | SBlock [SStatement]
   | SReturn SExpr
   | SIf SExpr SStatement SStatement
   | SFor SExpr SExpr SExpr SStatement
