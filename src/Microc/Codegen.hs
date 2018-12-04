@@ -160,13 +160,13 @@ codegenSexpr (_, SCall fun es) = do
   printf         <- gets (M.! "printf")
   case fun of
     "print" -> do
-      e' <- codegenSexpr $ head es
+      e' <- codegenSexpr (head es)
       L.call printf [(intFormatStr, []), (e', [])]
     "printf" -> do
-      e' <- codegenSexpr $ head es
+      e' <- codegenSexpr (head es)
       L.call printf [(floatFormatStr, []), (e', [])]
     "printb" -> do
-      e' <- codegenSexpr $ head es
+      e' <- codegenSexpr (head es)
       L.call printf [(intFormatStr, []), (e', [])]
     _ -> do
       es' <- forM es $ \e -> do
@@ -179,7 +179,8 @@ codegenSexpr (_, SNoexpr) = L.int32 0
 
 -- Final catchall
 codegenSexpr sx =
-  error $ "Internal error - semant failed. Invalid sexpr " ++ show sx
+  error $ "Internal error - semant failed. Invalid sexpr " <> show sx
+
 
 codegenStatement :: SStatement -> Codegen ()
 codegenStatement (SExpr   e) = void $ codegenSexpr e
@@ -225,8 +226,8 @@ codegenStatement (SWhile pred body) = mdo
 -- Turn for loops into equivalent while loops
 codegenStatement (SFor e1 e2 e3 body) = codegenStatement newStatement
  where
-  body'        = SBlock [body, SExpr e3]
   newStatement = SBlock [SExpr e1, SWhile e2 body']
+  body'        = SBlock [body, SExpr e3]
 
 
 mkTerminator :: Codegen () -> Codegen ()
@@ -284,17 +285,14 @@ emitBuiltIns = do
   printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
   modify $ M.insert "printf" printf
   modify $ M.insert "printbig" printbig
-<<<<<<< HEAD
   intFmt   <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
-=======
-
-  intFmt <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
->>>>>>> fp-power
   floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
   modify $ M.insert "_intFmt" intFmt
   modify $ M.insert "_floatFmt" floatFmt
 
-  llvmPow <- L.extern (mkName "llvm.pow.f64") [ AST.double, AST.double ] AST.double
+  llvmPow <- L.extern (mkName "llvm.pow.f64")
+                      [AST.double, AST.double]
+                      AST.double
   modify $ M.insert "llvm.pow" llvmPow
 
 codegenGlobal :: Bind -> LLVM ()
@@ -311,4 +309,3 @@ codegenProgram (globals, funcs) =
     emitBuiltIns
     mapM_ codegenGlobal globals
     mapM_ codegenFunc   funcs
-
