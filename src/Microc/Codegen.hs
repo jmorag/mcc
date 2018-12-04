@@ -71,7 +71,6 @@ codegenSexpr (TyFloat, SBinop op lhs rhs) = do
   rhs' <- codegenSexpr rhs
   (case op of Add -> L.fadd; Sub -> L.fsub; 
               Mult -> L.fmul; Div -> L.fdiv;
-              Power -> error "Not yet implemented";
               _ -> error "Internal error - semant failed") lhs' rhs'
 codegenSexpr (TyBool, SBinop op lhs@(TyInt, _) rhs) = do
   lhs' <- codegenSexpr lhs
@@ -234,10 +233,14 @@ emitBuiltIns = do
   printf <- L.externVarArgs (mkName "printf") [ charStar ] AST.i32
   modify $ M.insert "printf" printf
   modify $ M.insert "printbig" printbig
+
   intFmt <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
   floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
   modify $ M.insert "_intFmt" intFmt
   modify $ M.insert "_floatFmt" floatFmt
+
+  llvmPow <- L.extern (mkName "llvm.pow.f64") [ AST.double, AST.double ] AST.double
+  modify $ M.insert "llvm.pow" llvmPow
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do

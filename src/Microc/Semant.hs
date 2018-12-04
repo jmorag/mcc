@@ -67,13 +67,14 @@ checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
           (throwError $ TypeError [TyBool] t1 (Expr expr)) >> 
           return (t1, SBinop op lhs' rhs')
 
-        checkFloat = unless (t1 == TyFloat) 
-          (throwError $ TypeError [TyFloat] t1 (Expr expr)) >> 
-          return (t1, SBinop op lhs' rhs')
-
     case op of 
       Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
-      Power -> checkFloat;
+
+      -- Power operator no longer exists in Sast
+      Power -> do 
+        unless (t1 == TyFloat) (throwError $ TypeError [TyFloat] t1 (Expr expr))
+        return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
+
       And -> checkBool; Or -> checkBool;
       -- remaining are relational operators
       _ -> do unless (isNumeric t1) $
