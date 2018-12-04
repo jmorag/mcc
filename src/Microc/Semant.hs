@@ -52,6 +52,7 @@ builtIns = M.fromList $ map
   where toFunc (name, ty) = (name, Function TyVoid name [Bind ty "x"] [] [])
 
 checkExpr :: Expr -> Semant SExpr
+<<<<<<< HEAD
 checkExpr expr
   = let isNumeric t = t `elem` [TyInt, TyFloat]
     in
@@ -96,6 +97,46 @@ checkExpr expr
               unless (isNumeric t1) $ throwError $ TypeError [TyInt, TyFloat]
                                                              t1
                                                              (Expr expr)
+=======
+checkExpr expr = let isNumeric t = t `elem` [TyInt, TyFloat] in case expr of
+  Literal i  -> return (TyInt, SLiteral i)
+  Fliteral f -> return (TyFloat, SFliteral f)
+  BoolLit b  -> return (TyBool, SBoolLit b)
+  Noexpr     -> return (TyVoid, SNoexpr)
+
+  Id s -> do
+    vars <- gets vars
+    let foundVars = map (\kind -> M.lookup (s, kind) vars) [Local, Formal, Global]
+    case join $ find isJust foundVars of
+      Nothing -> throwError $ UndefinedSymbol s Var expr
+      Just ty -> return (ty, SId s)
+
+  Binop op lhs rhs -> do
+    lhs'@(t1, _) <- checkExpr lhs
+    rhs'@(t2, _) <- checkExpr rhs
+    unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
+
+    let checkArith = unless (isNumeric t1) 
+          (throwError $ TypeError [TyInt, TyFloat] t1 (Expr expr)) >> 
+          return (t1, SBinop op lhs' rhs')
+
+        checkBool  = unless (t1 == TyBool) 
+          (throwError $ TypeError [TyBool] t1 (Expr expr)) >> 
+          return (t1, SBinop op lhs' rhs')
+
+    case op of 
+      Add -> checkArith; Sub -> checkArith; Mult -> checkArith; Div -> checkArith;
+
+      -- Power operator no longer exists in Sast
+      Power -> do 
+        unless (t1 == TyFloat) (throwError $ TypeError [TyFloat] t1 (Expr expr))
+        return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
+
+      And -> checkBool; Or -> checkBool;
+      -- remaining are relational operators
+      _ -> do unless (isNumeric t1) $
+                throwError $ TypeError [TyInt, TyFloat] t1 (Expr expr)
+>>>>>>> fp-power
               return (TyBool, SBinop op lhs' rhs')
 
         Unop op e -> do

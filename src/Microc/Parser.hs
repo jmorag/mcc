@@ -20,6 +20,7 @@ import           Control.Applicative            ( liftA2
 opTable :: [[Operator Parser Expr]]
 opTable =
   [ [unary Neg "-", unary Not "!"]
+  , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add "+", infixL Sub "-"]
   , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]
@@ -38,8 +39,14 @@ opTable =
         -- but we need this in order to parse things like double negatives or
         -- nots. Also, should we extend the language to include pointers, then 
         -- the * and ** operators become actually important.
+<<<<<<< HEAD
   unary op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
   infixL op sym = InfixL $ Binop op <$ symbol sym
+=======
+        unary  op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
+        infixL op sym = InfixL $ Binop op <$ symbol sym
+        infixR op sym = InfixR $ Binop op <$ symbol sym
+>>>>>>> fp-power
 
 termP :: Parser Expr
 termP =

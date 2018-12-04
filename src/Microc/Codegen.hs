@@ -284,10 +284,18 @@ emitBuiltIns = do
   printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
   modify $ M.insert "printf" printf
   modify $ M.insert "printbig" printbig
+<<<<<<< HEAD
   intFmt   <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
+=======
+
+  intFmt <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
+>>>>>>> fp-power
   floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
   modify $ M.insert "_intFmt" intFmt
   modify $ M.insert "_floatFmt" floatFmt
+
+  llvmPow <- L.extern (mkName "llvm.pow.f64") [ AST.double, AST.double ] AST.double
+  modify $ M.insert "llvm.pow" llvmPow
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do
