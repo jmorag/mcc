@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 52c6ea5cdeb3cb4ddfb0aa360e8200a15f8b195d1e52794edbe122fda0621054
+-- hash: c6678ad50ae35112aa43eaf7956e3c96c4493bf7fe19c14201550a822b55a323
 
 name:           mcc
 version:        0.1.0.0
@@ -38,8 +38,8 @@ library
       Paths_mcc
   hs-source-dirs:
       src
-  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
+  default-extensions: OverloadedStrings, LambdaCase
+  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , bytestring
@@ -64,8 +64,8 @@ executable mcc
       Paths_mcc
   hs-source-dirs:
       app
-  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
+  default-extensions: OverloadedStrings, LambdaCase
+  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , bytestring
@@ -93,8 +93,8 @@ test-suite testall
       Paths_mcc
   hs-source-dirs:
       tests
-  default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-matches -Wcompat -Wincomplete-uni-patterns
+  default-extensions: OverloadedStrings, LambdaCase
+  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
   build-depends:
       base >=4.7 && <5
     , bytestring

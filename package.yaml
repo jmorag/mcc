@@ -7,7 +7,6 @@ license-file: LICENSE
 category: Compilers/Interpreters
 ghc-options: -Wall 
              -fno-warn-name-shadowing 
-             -fno-warn-unused-matches
              -Wcompat
              -Wincomplete-uni-patterns
 extra-source-files: README.md
@@ -29,7 +28,7 @@ dependencies:
     - llvm-hs-pure
     - llvm-hs-pretty
 
-default-extensions: OverloadedStrings, FlexibleContexts, FlexibleInstances, LambdaCase
+default-extensions: OverloadedStrings, LambdaCase
 
 library:
   source-dirs: src
