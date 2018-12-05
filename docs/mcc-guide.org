@@ -1,5 +1,25 @@
-* A guided tour of mcc (MicroC Compiler)
-** Introduction
-   In this series, we will explore how to write a compiler for a small subset of C to LLVM in Haskell. Our language, MicroC, will consist of concepts from C including local and global variables, functions, the use of native ~int~, ~bool~, and ~float~ types, and control flow. Notably absent from MicroC are pointers and structs, although they are easy extensions to the compiler.
-*** Why another LLVM tutorial?
-    Stephen Diehl's [[http://www.stephendiehl.com/llvm/][kaleidescope]] provides an excellent introduction to building a simple language using Haskell and LLVM. However, it uses a slightly older version of LLVM than is currently available.
+#+TITLE: A guided tour of mcc (MicroC Compiler)
+* Introduction
+  In this series, we will explore how to write a compiler for a small subset of C to LLVM in Haskell. Our language, MicroC, will consist of concepts from C including local and global variables, functions, the use of native ~int~, ~bool~, and ~float~ types, and control flow. Notably absent from MicroC are pointers and structs, although they are easy extensions to the compiler.
+** Why another LLVM tutorial?
+   Stephen Diehl's translation of the [[http://www.stephendiehl.com/llvm/][kaleidescope]] tutorial provides an excellent introduction to building a simple language using Haskell and LLVM. However, it uses a slightly older version of LLVM than is currently available. In particular, it was written before the IRBuilder module was added to the Haskell bindings and required users to write a lot of plumbing themselves which is now handled by the library.
+** Who is this tutorial for?
+   This tutorial assumes some familiarity with Haskell. To learn the language, consult the resources mentioned in [[https://stackoverflow.com/questions/1012573/getting-started-with-haskell][this]] superb Stackoverflow answer. For reference, the Haskell used in this project falls somewhere in what that answer would deem the early intermediate category, as there are a lot of Monad transformers, but no fancy GADTs, TypeFamilies, recursion schemes, or any of the other billion extensions that GHC has to offer. While all of these advanced language features could actually be quite helpful in writing a compiler, I've left them out of mcc in order to attempt to be more beginner friendly.
+* Part 0: Getting set up
+** Development environment
+   To get started, run ~git clone https://github.com/jmorag/mcc.git~ so you can follow along with the source. In order to actually generate executables, you will need working ~clang~ and ~llc~ binaries in your ~$PATH~. The maintainers of llvm-hs provide good instructions on how to install these [[https://github.com/llvm-hs/llvm-hs#installing-llvm][here]]. To build the Haskell programs, you should use [[https://docs.haskellstack.org/en/stable/README/][stack]]. Once you have installed stack, running ~stack test~ in the root directory should indicate to you whether everything is ready to go. See the [[https://github.com/jmorag/mcc][mcc readme]] for more details. 
+
+   To write Haskell in general, my top recommendation is Emacs with [[https://commercialhaskell.github.io/intero/][Intero]], as of December of 2018. I have also used Vim with [[https://github.com/w0rp/ale][ale]] and [[https://github.com/bitc/vim-hdevtools][hdevtools]] in the past which also worked reasonably well. To date, [[https://github.com/DanielG/ghc-mod][ghc-mod]] and [[https://github.com/haskell/haskell-ide-engine][haskell-ide-engine]] haven't worked for me, but if you use VSCode or something else with really good language server protocol support, then maybe give haskell-ide-engine a shot. On the opposite side of the feature spectrum is [[https://github.com/ndmitchell/ghcid][ghcid]], which will almost certainly work for everyone no matter what editor you use, but can't do fancy things like getting the type of the expression under the cursor. If you spend more than half an hour struggling with other tooling, give up, use ghcid, and move on with life.
+** Dependencies
+   The first thing that we need to do is pull in any libraries that we intend to use. Some people criticize Haskell for encouraging projects to depend on so many other libraries, but I think that it is a testament to the language and the type system that code can be reused so easily. Following [[https://lexi-lambda.github.io/blog/2018/02/10/an-opinionated-guide-to-haskell-in-2018/][this]] excellent blog post by Alexis King, I like to use the package.yaml format to declare my project structure. The first few lines are nothing special, they just detail the package metadata and author.
+#+INCLUDE: "~/Code/mcc/package.yaml" src yaml :lines "-8"
+We will also increase GHC's warning levels to catch more potential problems. Some of these can be annoying, but they solve many more headaches than they cause.
+#+INCLUDE: "~/Code/mcc/package.yaml" src yaml :lines "8-12"
+
+   Next, we specify the dependencies common to the compiler library, executable, and test suite. This is a nice benefit to using a package.yaml file, as when using a project.cabal file, these have to be repeated for each stanza.
+#+INCLUDE: "~/Code/mcc/package.yaml" src yaml :lines "15-30"
+Then, the executable and test suite only need a couple more packages each. Notice that they each depend on the compiler library. Even when writing an application, it is considered good practice in the Haskell community to write it as a library, because maybe some of it will be useful to someone else. 
+#+INCLUDE: "~/Code/mcc/package.yaml" src yaml :lines "36-"
+I also like to include language extensions in the package.yaml file. I've only enabled two globally for this project.
+#+INCLUDE: "~/Code/mcc/package.yaml" src yaml :lines "31-32"
+~OverloadedStrings~ is a necessary evil to deal with Haskell's infamous string problem and ~LambdaCase~ is a tiny syntactic extension that lets us get away with making up fewer variable names, thereby solving a [[https://hilton.org.uk/blog/why-naming-things-is-hard][hard problem]] in Computer Science. 
