@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Ast where
 import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
@@ -23,7 +22,6 @@ data Expr =
   | Noexpr
   deriving (Show, Eq)
 
-
 data Statement =
     Expr Expr
   | Block [Statement]
@@ -32,7 +30,6 @@ data Statement =
   | For Expr Expr Expr Statement
   | While Expr Statement
   deriving (Show, Eq)
-
 
 data Function = Function
   { typ  :: Type
@@ -120,5 +117,6 @@ instance Pretty Program where
 decl :: Pretty a => a -> Doc ann
 decl bind = pretty bind <> semi
 
+-- | Separates many docs with hardlines
 hardsep :: [Doc ann] -> Doc ann
 hardsep = concatWith (\x y -> x <> hardline <> y)
