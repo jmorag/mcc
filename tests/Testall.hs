@@ -16,7 +16,7 @@ import qualified Data.Text.IO                  as T
 import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
-import           Text.Megaparsec                ( parseErrorPretty' )
+import           Text.Megaparsec                ( errorBundlePretty )
 
 -- | Given a microc file, attempt to compile and execute it and read the
 -- results to be compared with what should be the correct output
@@ -25,7 +25,7 @@ runFile infile = do
   program <- T.readFile infile
   let parseTree = runParser programP (cs infile) program
   case parseTree of
-    Left  e   -> return . cs $ parseErrorPretty' program e
+    Left  e   -> return . cs $ errorBundlePretty e
     Right ast -> case checkProgram ast of
       Left err ->
         return . renderStrict $ layoutPretty defaultLayoutOptions (pretty err)

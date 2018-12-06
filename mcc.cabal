@@ -1,10 +1,8 @@
-cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.31.1.
+-- This file has been generated from package.yaml by hpack version 0.28.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c6678ad50ae35112aa43eaf7956e3c96c4493bf7fe19c14201550a822b55a323
+-- hash: 0c5ba3e94dd272a290514767600675b32dcbfcca34f6460236ce85a5d1284db9
 
 name:           mcc
 version:        0.1.0.0
@@ -13,9 +11,9 @@ category:       Compilers/Interpreters
 homepage:       https://github.com/jmorag/mcc#readme
 bug-reports:    https://github.com/jmorag/mcc/issues
 author:         Joseph Morag
-license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
+cabal-version:  >= 1.10
 extra-source-files:
     README.md
 
@@ -48,8 +46,9 @@ library
     , filepath
     , llvm-hs-pretty
     , llvm-hs-pure
-    , megaparsec >=6.4.1 && <7
+    , megaparsec >=7 && <8
     , mtl >=2.2 && <=3
+    , parser-combinators >=1 && <2
     , pretty-simple
     , prettyprinter
     , process
@@ -75,9 +74,10 @@ executable mcc
     , llvm-hs-pretty
     , llvm-hs-pure
     , mcc
-    , megaparsec >=6.4.1 && <7
+    , megaparsec >=7 && <8
     , mtl >=2.2 && <=3
     , optparse-applicative
+    , parser-combinators >=1 && <2
     , pretty-simple
     , prettyprinter
     , process
@@ -104,8 +104,9 @@ test-suite testall
     , llvm-hs-pretty
     , llvm-hs-pure
     , mcc
-    , megaparsec >=6.4.1 && <7
+    , megaparsec >=7 && <8
     , mtl >=2.2 && <=3
+    , parser-combinators >=1 && <2
     , pretty-simple
     , prettyprinter
     , process

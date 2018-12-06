@@ -11,7 +11,7 @@ import           Text.Pretty.Simple
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
 
-import           Text.Megaparsec                ( parseErrorPretty' )
+import           Text.Megaparsec                ( errorBundlePretty )
 
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath }
@@ -39,7 +39,7 @@ runOpts (Options action infile) = do
   program <- T.readFile infile
   let parseTree = runParser programP (cs infile) program
   case parseTree of
-    Left  e   -> putStrLn $ parseErrorPretty' program e
+    Left  e   -> putStrLn $ errorBundlePretty e
     Right ast -> case action of
       Ast -> putDoc $ pretty ast
       _   -> case checkProgram ast of

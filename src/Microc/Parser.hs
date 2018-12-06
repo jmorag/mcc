@@ -7,7 +7,7 @@ where
 import           Microc.Ast
 import           Microc.Scanner
 import           Text.Megaparsec
-import           Text.Megaparsec.Expr
+import           Control.Monad.Combinators.Expr
 
 -- liftA2 f x y   = f <$> x <*> y
 -- liftA3 f x y z = f <$> x <*> y <*> z

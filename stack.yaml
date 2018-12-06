@@ -11,6 +11,7 @@ extra-deps:
   subdirs:
     - llvm-hs-pure
 - llvm-hs-pretty-0.6.1.0
+- megaparsec-7.0.4
 
 nix:
     enable: false
