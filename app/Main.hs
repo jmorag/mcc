@@ -18,21 +18,28 @@ data Options = Options { action :: Action, infile :: FilePath }
 
 actionP :: Parser Action
 actionP =
-  flag' Ast (long "ast" <> short 'a')
-    <|> flag' Sast    (long "sast" <> short 's')
-    <|> flag' LLVM    (long "llvm" <> short 'l')
-    <|> flag' Compile (long "compile" <> short 'c')
-    <*> strOption (short 'o' <> value "a.out")
+  flag' Ast (long "ast" <> short 'a' <> help "Pretty print the ast")
+    <|> flag' Sast (long "sast" <> short 's' <> help "Pretty print the sast")
+    <|> flag'
+          LLVM
+          (long "llvm" <> short 'l' <> help "Pretty print the generated llvm")
+    <|> flag' Compile
+              (long "compile" <> short 'c' <> help "Compile to an executable")
+    <*> strOption (short 'o' <> value "a.out" <> metavar "FILE")
   -- running the file to see the expected output is default
     <|> pure Run
 
 optionsP :: Parser Options
 optionsP =
-  Options <$> actionP <*> strArgument (help "input file" <> metavar "FILE")
+  Options <$> actionP <*> strArgument (help "Source file" <> metavar "FILE")
 
 main :: IO ()
-main = runOpts =<< execParser (optionsP `withInfo` "Compile stuff")
-  where withInfo opts desc = info (helper <*> opts) $ progDesc desc
+main = runOpts =<< execParser (optionsP `withInfo` infoString)
+ where
+  withInfo opts desc = info (helper <*> opts) $ progDesc desc
+  infoString
+    = "Run the mcc compiler on the given file. \
+       \Passing no flags will compile the file, execute it, and print the output."
 
 runOpts :: Options -> IO ()
 runOpts (Options action infile) = do
