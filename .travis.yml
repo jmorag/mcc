@@ -38,4 +38,4 @@ install:
 
 script:
 # Build the package, its tests, and its docs and run the tests
-- stack --no-terminal test --haddock --no-haddock-deps --verbose -- -j 1
+- stack --no-terminal test --haddock --no-haddock-deps --verbose --ta '-j1'
