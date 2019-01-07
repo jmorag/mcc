@@ -30,11 +30,12 @@ compile llvmModule outfile =
       -- generate the runtime object file
       callProcess "clang" ["-c", "../src/runtime.c", "-o", runtime]
       -- link the runtime with the assembly
-      callProcess "clang" [assembly, runtime, "-o", "../" <> outfile]
+      callProcess "clang" ["-lm", assembly, runtime, "-o", "../" <> outfile]
 
 -- | Compile and llvm module and read the results of executing it
 run :: Module -> IO Text
-run llvmModule =
-  bracket (fst <$> mkstemps "a" ".out") removePathForcibly $ \temp -> do
-    compile llvmModule temp
-    cs <$> readProcess ("./" <> temp) [] []
+run llvmModule = do
+  compile llvmModule "./a.out"
+  result <- cs <$> readProcess "./a.out" [] []
+  removePathForcibly "./a.out"
+  return result
