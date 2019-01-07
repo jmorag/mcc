@@ -24,7 +24,6 @@ addons:
   apt:
     packages:
       - libgmp-dev
-      # - llvm-6.0
 
 before_install:
 # Download and unpack the stack executable
@@ -38,4 +37,4 @@ install:
 
 script:
 # Build the package, its tests, and its docs and run the tests
-- stack --no-terminal test --haddock --no-haddock-deps --verbose --ta '-j1'
+- stack --no-terminal test --haddock --no-haddock-deps --verbose
