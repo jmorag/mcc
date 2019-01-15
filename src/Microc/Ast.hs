@@ -17,7 +17,7 @@ data Expr =
   | Id Text
   | Binop Op Expr Expr
   | Unop Uop Expr
-  | Assign Text Expr
+  | Assign Expr Expr -- Assignment is an expression and those need to be symmetric
   | Call Text [Expr]
   | Noexpr
   deriving (Show, Eq)

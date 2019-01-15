@@ -27,13 +27,7 @@ opTable =
   , [infixL Equal "==", infixL Neq "!="]
   , [infixL And "&&"]
   , [infixL Or "||"]
-  , [ InfixR
-        $  (\lhs rhs -> case lhs of
-             Id s -> Assign s rhs
-             _    -> error $ "Cannot assign to expression " <> show lhs
-           )
-        <$ symbol "="
-    ]
+  , [InfixR $ Assign <$ symbol "="]
   ]
  where -- Megaparsec doesn't support multiple prefix operators by default,
         -- but we need this in order to parse things like double negatives or
