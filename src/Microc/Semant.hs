@@ -85,18 +85,19 @@ checkExpr expr
                      (throwError $ TypeError [TyBool] t1 (Expr expr))
                 >> return (t1, SBinop op lhs' rhs')
           case op of
-            Add  -> checkArith
-            Sub  -> checkArith
-            Mult -> checkArith
-            Div  -> checkArith
-            And  -> checkBool
-            Or   -> checkBool
+            Add   -> checkArith
+            Sub   -> checkArith
+            Mult  -> checkArith
+            Div   -> checkArith
+            And   -> checkBool
+            Or    -> checkBool
             -- Power operator no longer exists in Sast
-            Power -> do 
-              unless (t1 == TyFloat) (throwError $ TypeError [TyFloat] t1 (Expr expr))
+            Power -> do
+              unless (t1 == TyFloat)
+                     (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
                  -- remaining are relational operators
-            _    -> do
+            _ -> do
               unless (isNumeric t1) $ throwError $ TypeError [TyInt, TyFloat]
                                                              t1
                                                              (Expr expr)
@@ -117,10 +118,12 @@ checkExpr expr
               return (ty, SUnop Not e')
 
         Assign s e -> do
-          rhs@(ty , _) <- checkExpr e
-          (    ty', _) <- checkExpr (Id s)
+          rhs@(ty , _  ) <- checkExpr e
+          (    ty', lhs) <- checkExpr s
           unless (ty == ty') $ throwError $ TypeError [ty'] ty (Expr expr)
-          return (ty, SAssign s rhs)
+          case lhs of
+            SId s -> return (ty, SAssign s rhs)
+            _     -> throwError $ AssignmentError s e
 
         Call s es -> do
           funcs <- gets funcs

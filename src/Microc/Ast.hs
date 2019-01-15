@@ -91,9 +91,11 @@ instance Pretty Expr where
 instance Pretty Statement where
   pretty = \case
     Expr e -> pretty e <> semi
-    Block ss -> lbrace <> hardline <> indent 4 (vsep (map pretty ss)) <> hardline <> rbrace
+    Block ss -> lbrace <> hardline <> indent 4 (vsep (map pretty ss))
+      <> hardline <> rbrace
     Return e -> "return" <+> pretty e <> semi
-    If pred cons alt -> "if" <+> parens (pretty pred) <+> pretty cons <> prettyAlt
+    If pred cons alt ->
+      "if" <+> parens (pretty pred) <+> pretty cons <> prettyAlt
       where
         prettyAlt =
           case alt of
