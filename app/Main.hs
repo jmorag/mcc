@@ -48,9 +48,9 @@ runOpts (Options action infile) = do
   case parseTree of
     Left  e   -> putStrLn $ errorBundlePretty e
     Right ast -> case action of
-      Ast -> putDoc $ pretty ast
+      Ast -> putDoc $ pretty ast <> "\n"
       _   -> case checkProgram ast of
-        Left err -> putDoc $ pretty err
+        Left err -> putDoc $ pretty err <> "\n"
         Right sast ->
           let llvm = codegenProgram sast
           in  case action of
