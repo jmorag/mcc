@@ -202,28 +202,24 @@ checkFunction func = do
   modify
     $ \env -> env { funcs = M.insert (name func) func funcs, thisFunc = func }
 
-  -- Save the symbol table prior to adding formal and local variables to it
-  oldState <- get
-
-  -- check variables
-  formals' <- checkBinds Formal (formals func)
-  locals'  <- checkBinds Local (locals func)
-
-  -- Check the body of the function with all the local variables added to the
-  -- symbol table
-  body'    <- checkStatement (Block $ body func)
-
-  -- remove all local variables from symbol table
-  put oldState
+  (formals', locals', body') <- locally $ liftM3 (,,)
+    (checkBinds Formal (formals func))
+    (checkBinds Local (locals func))
+    (checkStatement (Block $ body func))
 
   case body' of
-    SBlock body'' -> return $ SFunction
-      { styp     = typ func
-      , sname    = name func
-      , sformals = formals'
-      , slocals  = locals'
-      , sbody    = body''
-      }
+    SBlock body'' -> do
+      unless (typ func == TyVoid) (case last body'' of
+        SReturn _ -> return ()
+        _ -> throwError  (TypeError [typ func] TyVoid (Block $ body func)))
+
+      return $ SFunction
+        { styp     = typ func
+        , sname    = name func
+        , sformals = formals'
+        , slocals  = locals'
+        , sbody    = body''
+        }
     _ -> error "Internal error - block didn't become a block?"
 
 checkProgram :: Program -> Either SemantError SProgram
@@ -240,3 +236,10 @@ checkProgram (Program binds funcs) = evalState
     case find (\f -> sname f == "main") funcs' of
       Nothing -> throwError NoMain
       Just _  -> return (globals, funcs')
+
+locally :: MonadState s m => m a -> m a
+locally computation = do
+  oldState <- get
+  result <- computation
+  put oldState
+  return result
