@@ -1,8 +1,8 @@
-int foo() {}
+void foo() {}
 
 void bar() {}
 
-int print() {} /* Should not be able to define print */
+void print() {} /* Should not be able to define print */
 
 void baz() {}
 
