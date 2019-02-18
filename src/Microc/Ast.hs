@@ -3,7 +3,7 @@ import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 
 data Op = Add | Sub | Mult | Div | Power | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or deriving (Show, Eq)
+          And | Or | BitAnd | BitOr deriving (Show, Eq)
 
 data Uop = Neg | Not deriving (Show, Eq)
 
