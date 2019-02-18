@@ -202,16 +202,24 @@ checkFunction func = do
   modify
     $ \env -> env { funcs = M.insert (name func) func funcs, thisFunc = func }
 
-  (formals', locals', body') <- locally $ liftM3 (,,)
+  (formals', locals', body') <- locally $ liftM3
+    (,,)
     (checkBinds Formal (formals func))
     (checkBinds Local (locals func))
     (checkStatement (Block $ body func))
 
   case body' of
     SBlock body'' -> do
-      unless (typ func == TyVoid) (case last body'' of
-        SReturn _ -> return ()
-        _ -> throwError  (TypeError [typ func] TyVoid (Block $ body func)))
+      let voidError =
+            throwError (TypeError [typ func] TyVoid (Block $ body func))
+      unless
+        (typ func == TyVoid)
+        (if null (body func)
+          then voidError
+          else case last body'' of
+            SReturn _ -> return ()
+            _         -> voidError
+        )
 
       return $ SFunction
         { styp     = typ func
@@ -240,6 +248,6 @@ checkProgram (Program binds funcs) = evalState
 locally :: MonadState s m => m a -> m a
 locally computation = do
   oldState <- get
-  result <- computation
+  result   <- computation
   put oldState
   return result
