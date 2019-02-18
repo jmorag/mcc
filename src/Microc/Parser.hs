@@ -29,6 +29,8 @@ opTable =
   , [infixL Add "+", infixL Sub "-"]
   , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]
   , [infixL Equal "==", infixL Neq "!="]
+  , [infixL BitAnd "&"]
+  , [infixL BitOr "|"]
   , [infixL And "&&"]
   , [infixL Or "||"]
   , [InfixR $ Assign <$ symbol "="]

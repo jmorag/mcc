@@ -60,6 +60,8 @@ instance Pretty Op where
     Geq -> ">="
     And -> "&&"
     Or -> "||"
+    BitAnd -> "&"
+    BitOr -> "|"
 
 instance Pretty Uop where
   pretty = \case

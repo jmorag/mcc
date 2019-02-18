@@ -85,14 +85,16 @@ checkExpr expr
                      (throwError $ TypeError [TyBool] t1 (Expr expr))
                 >> return (t1, SBinop op lhs' rhs')
           case op of
-            Add   -> checkArith
-            Sub   -> checkArith
-            Mult  -> checkArith
-            Div   -> checkArith
-            And   -> checkBool
-            Or    -> checkBool
+            Add    -> checkArith
+            Sub    -> checkArith
+            Mult   -> checkArith
+            Div    -> checkArith
+            BitAnd -> checkArith
+            BitOr  -> checkArith
+            And    -> checkBool
+            Or     -> checkBool
             -- Power operator no longer exists in Sast
-            Power -> do
+            Power  -> do
               unless (t1 == TyFloat)
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])

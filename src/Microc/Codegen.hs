@@ -75,6 +75,8 @@ codegenSexpr (TyInt, SBinop op lhs rhs) = do
       Sub  -> L.sub
       Mult -> L.mul
       Div  -> L.sdiv
+      BitAnd -> L.and
+      BitOr  -> L.or
       _    -> error "Internal error - semant failed"
     )
     lhs'
@@ -87,6 +89,8 @@ codegenSexpr (TyFloat, SBinop op lhs rhs) = do
       Sub  -> L.fsub
       Mult -> L.fmul
       Div  -> L.fdiv
+      BitAnd -> L.and
+      BitOr  -> L.or
       _    -> error "Internal error - semant failed"
     )
     lhs'
@@ -123,11 +127,11 @@ codegenSexpr (TyBool, SBinop op lhs@(TyBool, _) rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   (case op of
-      And   -> L.and
-      Or    -> L.or
-      Equal -> L.icmp IP.EQ
-      Neq   -> L.icmp IP.NE
-      _     -> error "Internal error - semant failed"
+      And    -> L.and
+      Or     -> L.or
+      Equal  -> L.icmp IP.EQ
+      Neq    -> L.icmp IP.NE
+      _      -> error "Internal error - semant failed"
     )
     lhs'
     rhs'
