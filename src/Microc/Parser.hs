@@ -16,6 +16,10 @@ import           Control.Monad.Combinators.Expr
 import           Control.Applicative            ( liftA2
                                                 , liftA3
                                                 )
+opChar :: Parser Char
+opChar = oneOf chars where
+  chars :: [Char]
+  chars = "!#$%&*+./<=>?@\\^|-~"
 
 opTable :: [[Operator Parser Expr]]
 opTable =
@@ -34,8 +38,9 @@ opTable =
         -- nots. Also, should we extend the language to include pointers, then 
         -- the * and ** operators become actually important.
         unary  op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
-        infixL op sym = InfixL $ Binop op <$ symbol sym
-        infixR op sym = InfixR $ Binop op <$ symbol sym
+        infixL op sym = InfixL $ Binop op <$ operator sym
+        infixR op sym = InfixR $ Binop op <$ operator sym
+        operator sym = lexeme $ try (symbol sym <* notFollowedBy opChar)
 
 termP :: Parser Expr
 termP =
