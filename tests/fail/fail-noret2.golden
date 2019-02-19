@@ -1,0 +1,5 @@
+Type error: expected one of [int] but got void. Error occured in statement:
+{
+    if (true) return 0;
+    else print(1);
+}

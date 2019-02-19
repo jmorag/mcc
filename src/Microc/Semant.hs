@@ -7,6 +7,7 @@ where
 import           Microc.Ast
 import           Microc.Sast
 import           Microc.Semant.Error
+import           Microc.Semant.Analysis
 import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Control.Monad.Except
@@ -210,23 +211,15 @@ checkFunction func = do
 
   case body' of
     SBlock body'' -> do
-      let voidError =
-            throwError (TypeError [typ func] TyVoid (Block $ body func))
-      unless
-        (typ func == TyVoid)
-        (if null (body func)
-          then voidError
-          else case last body'' of
-            SReturn _ -> return ()
-            _         -> voidError
-        )
+      unless (typ func == TyVoid || validate (genCFG body''))
+        $ throwError (TypeError [typ func] TyVoid (Block $ body func))
 
       return $ SFunction
         { styp     = typ func
         , sname    = name func
         , sformals = formals'
         , slocals  = locals'
-        , sbody    = body''
+        , sbody    = SBlock body''
         }
     _ -> error "Internal error - block didn't become a block?"
 
