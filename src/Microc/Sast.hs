@@ -30,7 +30,7 @@ data SFunction = SFunction
   , sname :: Text
   , sformals :: [Bind]
   , slocals :: [Bind]
-  , sbody :: [SStatement]
+  , sbody :: SStatement
   }
   deriving (Show, Eq)
 

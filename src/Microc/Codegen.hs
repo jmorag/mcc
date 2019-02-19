@@ -275,7 +275,7 @@ codegenFunc f = mdo
           modify $ M.insert n addr
         -- Evaluate the actual body of the function after making the necessary
         -- allocations
-        mapM_ codegenStatement (sbody f)
+        codegenStatement (sbody f)
 
   fun <- L.function name args retty body
   -- Undo the modifications to the environment made after we inserted the
