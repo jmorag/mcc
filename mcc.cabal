@@ -1,8 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: af9d30f3642279f12fcbce74c9f0cf84de531cb1aa87ed5c8776ba6406269a66
+-- hash: 86cf81ea06951206db544e8e62605df18babd47d01342178307ac4e2d90e4803
 
 name:           mcc
 version:        0.1.0.0
@@ -11,9 +13,9 @@ category:       Compilers/Interpreters
 homepage:       https://github.com/jmorag/mcc#readme
 bug-reports:    https://github.com/jmorag/mcc/issues
 author:         Joseph Morag
+license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
 extra-source-files:
     README.md
 
