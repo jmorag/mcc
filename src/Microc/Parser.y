@@ -10,55 +10,59 @@ import Data.Text (pack)
 %error { parseError }
 
 %token
-  int    { LInt   $$ } 
-  float  { LFloat $$ } 
-  id     { LId    $$ } 
-  type   { LType  $$ } 
-  bool   { LBool  $$ } 
-  return { LRet } 
-  '='    { LAssign } 
-  ','    { LComma } 
-  ';'    { LSemi } 
-  '('    { LPAREN } 
-  ')'    { RPAREN } 
-  '['    { LBRACE } 
-  ']'    { RBRACE } 
-  '{'    { LBRACK } 
-  '}'    { RBRACK } 
-  for    { LFor } 
-  while  { LWhile } 
-  if     { LIf } 
-  else   { LElse } 
-  '+'    { LAdd } 
-  '-'    { LSub } 
-  '*'    { LMul } 
-  '/'    { LDiv } 
-  '=='   { LEqual } 
-  '!='   { LNeq } 
-  '<'    { LLess } 
-  '<='   { LLeq } 
-  '>'    { LGreater } 
-  '>='   { LGeq } 
-  '&&'   { LAnd } 
-  '||'   { LOr  } 
-  '!'    { LNot } 
-           
+  int    { LInt   $$ }
+  float  { LFloat $$ }
+  id     { LId    $$ }
+  type   { LType  $$ }
+  bool   { LBool  $$ }
+  return { LRet }
+  '='    { LAssign }
+  ','    { LComma }
+  ';'    { LSemi }
+  '('    { LPAREN }
+  ')'    { RPAREN }
+  '{'    { LBRACE }
+  '}'    { RBRACE }
+  for    { LFor }
+  while  { LWhile }
+  if     { LIf }
+  else   { LElse }
+  '+'    { LAdd }
+  '-'    { LSub }
+  '*'    { LMul }
+  '/'    { LDiv }
+  '=='   { LEqual }
+  '!='   { LNeq }
+  '<'    { LLess }
+  '<='   { LLeq }
+  '>'    { LGreater }
+  '>='   { LGeq }
+  '&&'   { LAnd }
+  '||'   { LOr  }
+  '!'    { LNot }
+  '&'    { LBitAnd }
+  '|'    { LBitOr  }
+  '^'    { LPow }
+
 %nonassoc NOELSE
 %nonassoc else
 %right '='
+%left '|'
+%left '&'
 %left '||'
 %left '&&'
 %left '==' '!='
 %left '<' '>' '<=' '>='
 %left '+' '-'
 %left '*' '/'
+%right '^'
 %right '!' NEG
 
 
 %%
 
 program:
-  decls { Program (fst $1) (snd $1) }
+  decls { Program (reverse $ fst $1) (reverse $ snd $1) }
 
 decls:
    {- empty -} { ([], []) }
@@ -66,12 +70,12 @@ decls:
  | decls fdecl { ((fst $1), ($2 : snd $1)) }
 
 fdecl:
-   typ id '(' formals_opt ')' '[' vdecl_list stmt_list ']'
+   typ id '(' formals_opt ')' '{' vdecl_list stmt_list '}'
      { Function { typ = $1,
-	 name = pack $2,
-	 formals = $4,
-	 locals = reverse $7,
-	 body = reverse $8 } }
+         name = pack $2,
+         formals = $4,
+         locals = reverse $7,
+         body = reverse $8 } }
 
 formals_opt:
     {- empty -} { [] }
@@ -98,7 +102,7 @@ stmt:
     expr ';' { Expr $1 }
   | return ';' { Return Noexpr }
   | return expr ';' { Return $2 }
-  | '[' stmt_list ']' { Block (reverse $2) }
+  | '{' stmt_list '}' { Block (reverse $2) }
   | if '(' expr ')' stmt %prec NOELSE { If $3 $5 (Block []) }
   | if '(' expr ')' stmt else stmt    { If $3 $5 $7 }
   | for '(' expr_opt ';' expr ';' expr_opt ')' stmt
@@ -112,10 +116,10 @@ expr_opt:
 expr:
     int                    { Literal $1 }
   | float                  { Fliteral $1 }
-  | bool                   { BoolLit $1}
+  | bool                   { BoolLit $1 }
   | id                     { Id (pack $1) }
-  | expr '*'  expr         { Binop  Add  $1 $3 }
-  | expr '-'  expr         { Binop   Sub  $1 $3 }
+  | expr '+'  expr         { Binop  Add  $1 $3 }
+  | expr '-'  expr         { Binop  Sub  $1 $3 }
   | expr '*'  expr         { Binop  Mult $1 $3 }
   | expr '/'  expr         { Binop  Div  $1 $3 }
   | expr '==' expr         { Binop  Equal $1 $3 }
@@ -124,11 +128,14 @@ expr:
   | expr '<=' expr         { Binop  Leq  $1 $3 }
   | expr '>'  expr         { Binop  Greater $1 $3 }
   | expr '>=' expr         { Binop  Geq  $1 $3 }
+  | expr '&'  expr         { Binop  BitAnd  $1 $3 }
+  | expr '|'  expr         { Binop  BitOr   $1 $3 }
   | expr '&&' expr         { Binop  And  $1 $3 }
-  | expr '||'  expr        { Binop  Or   $1 $3 }
+  | expr '||' expr         { Binop  Or   $1 $3 }
+  | expr '^'  expr         { Binop  Power $1 $3 }
   | '-' expr %prec NEG     { Unop Neg $2 }
   | '!' expr               { Unop Not  $2 }
-  | id '=' expr            { Assign (Id (pack $1)) $3 }
+  | expr '=' expr          { Assign $1 $3 }
   | id '(' actuals_opt ')' { Call (pack $1) $3 }
   | '(' expr ')'           { $2 }
 
@@ -140,4 +147,4 @@ actuals_list:
     expr                    { [$1] }
   | actuals_list ',' expr { $3 : $1 }
 
-{ parseError = const $ error "Unable to parse tokens" }
+{ parseError _ = error "Unable to parse tokens" }

@@ -8,42 +8,47 @@ import Microc.Ast
 
 $alpha = [a-zA-Z]
 $digit = 0-9
+$newline = [\r\n]
 
 tokens :-
  $white+  ;
- "/*" ( [^\*] | \*+ [^\/] )* "*/"    ;
- \(       { \_ -> LPAREN }
- \)       { \_ -> RPAREN }
- \{       { \_ -> LBRACE }
- \}       { \_ -> RBRACE }
- \;       { \_ -> LSemi        }
- \,       { \_ -> LComma        }
- \+       { \_ -> LAdd        }
- \-       { \_ -> LSub        }
- \*       { \_ -> LMul        }
- \/       { \_ -> LDiv        }
- \=       { \_ -> LAssign         }
- \=\=     { \_ -> LEqual        }
- \!\=     { \_ -> LNeq        }
- \<       { \_ -> LLess        }
- \<\=     { \_ -> LLeq        }
- \>       { \_ -> LGreater        }
- \>\=     { \_ -> LGeq        }
- \&\&     { \_ -> LAnd        }
- \|\|     { \_ -> LOr          }
- \!       { \_ -> LNot             }
- "if"     { \_ -> LIf }
- "else"   { \_ -> LElse }
- "for"    { \_ -> LFor }
- "while"  { \_ -> LWhile }
- "return" { \_ -> LRet }
- "int"    { \_ -> LType TyInt }
- "bool"   { \_ -> LType TyBool }
- "void"   { \_ -> LType TyVoid }
- "true"   { \_ -> LBool True }
- "false"  { \_ -> LBool False }
+ "/*" ( $newline | [^\*] | \*+ ($newline | [^\/]) )* "*/" ;
+ \(       { \_ -> LPAREN   }
+ \)       { \_ -> RPAREN   }
+ \{       { \_ -> LBRACE   }
+ \}       { \_ -> RBRACE   }
+ \;       { \_ -> LSemi    }
+ \,       { \_ -> LComma   }
+ \+       { \_ -> LAdd     }
+ \-       { \_ -> LSub     }
+ \*       { \_ -> LMul     }
+ \/       { \_ -> LDiv     }
+ \=       { \_ -> LAssign  }
+ \=\=     { \_ -> LEqual   }
+ \!\=     { \_ -> LNeq     }
+ \<       { \_ -> LLess    }
+ \<\=     { \_ -> LLeq     }
+ \>       { \_ -> LGreater }
+ \>\=     { \_ -> LGeq     }
+ \&\&     { \_ -> LAnd     }
+ \|\|     { \_ -> LOr      }
+ \!       { \_ -> LNot     }
+ \&       { \_ -> LBitAnd  }
+ \|       { \_ -> LBitOr   }
+ \^       { \_ -> LPow     }
+ "if"     { \_ -> LIf      }
+ "else"   { \_ -> LElse    }
+ "for"    { \_ -> LFor     }
+ "while"  { \_ -> LWhile   }
+ "return" { \_ -> LRet     }
+ "int"    { \_ -> LType TyInt   }
+ "float"  { \_ -> LType TyFloat }
+ "bool"   { \_ -> LType TyBool  }
+ "void"   { \_ -> LType TyVoid  }
+ "true"   { \_ -> LBool True    }
+ "false"  { \_ -> LBool False   }
  $digit+  { \s -> LInt (read s) }
- $digit+ \. $digit+ [eE] $digit* { \s -> LFloat (read s) }
+ \-? $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }
 
 {
@@ -77,6 +82,9 @@ data Lexeme = LInt Int
             | LGreater
             | LGeq
             | LAnd
-            | LOr 
+            | LOr
             | LNot
+            | LBitAnd
+            | LBitOr
+            | LPow
             }
