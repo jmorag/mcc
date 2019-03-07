@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 86cf81ea06951206db544e8e62605df18babd47d01342178307ac4e2d90e4803
+-- hash: 902a6ba5dba048c9292f529d470a6a63867ad78b6c6719c517657c503ce84c3b
 
 name:           mcc
 version:        0.1.0.0
@@ -41,17 +41,19 @@ library
       src
   default-extensions: OverloadedStrings, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , bytestring
     , containers
     , directory
     , filepath
     , llvm-hs-pretty
     , llvm-hs-pure
-    , megaparsec >=7 && <8
     , mtl >=2.2 && <=3
-    , parser-combinators >=1 && <2
     , pretty-simple
     , prettyprinter
     , process
@@ -68,8 +70,12 @@ executable mcc
       app
   default-extensions: OverloadedStrings, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , bytestring
     , containers
     , directory
@@ -77,10 +83,8 @@ executable mcc
     , llvm-hs-pretty
     , llvm-hs-pure
     , mcc
-    , megaparsec >=7 && <8
     , mtl >=2.2 && <=3
     , optparse-applicative
-    , parser-combinators >=1 && <2
     , pretty-simple
     , prettyprinter
     , process
@@ -98,8 +102,12 @@ test-suite testall
       tests
   default-extensions: OverloadedStrings, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , bytestring
     , containers
     , directory
@@ -107,9 +115,7 @@ test-suite testall
     , llvm-hs-pretty
     , llvm-hs-pure
     , mcc
-    , megaparsec >=7 && <8
     , mtl >=2.2 && <=3
-    , parser-combinators >=1 && <2
     , pretty-simple
     , prettyprinter
     , process

@@ -1,17 +1,16 @@
 module Main where
 
-import           Microc                  hiding ( Parser )
+import           Microc
 
 import           Options.Applicative
 import           LLVM.Pretty
 import           Data.String.Conversions
+import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
 
 import           Text.Pretty.Simple
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
-
-import           Text.Megaparsec                ( errorBundlePretty )
 
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath }
@@ -44,10 +43,8 @@ main = runOpts =<< execParser (optionsP `withInfo` infoString)
 runOpts :: Options -> IO ()
 runOpts (Options action infile) = do
   program <- T.readFile infile
-  let parseTree = runParser programP (cs infile) program
-  case parseTree of
-    Left  e   -> putStrLn $ errorBundlePretty e
-    Right ast -> case action of
+  let ast = parse . alexScanTokens $ T.unpack program
+  case action of
       Ast -> putDoc $ pretty ast <> "\n"
       _   -> case checkProgram ast of
         Left err -> putDoc $ pretty err <> "\n"

@@ -13,9 +13,8 @@ extra-source-files: README.md
 
 dependencies:
     - base >= 4.7 && < 5
-    - happy
-    - alex
     - mtl >= 2.2 && <= 3
+    - array
     - containers
     - text
     - string-conversions
@@ -31,7 +30,9 @@ dependencies:
 
 default-extensions: OverloadedStrings, LambdaCase
 
-build-tools: alex, happy
+build-tools:
+  - alex
+  - happy
 
 library:
   source-dirs: src

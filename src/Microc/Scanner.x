@@ -1,71 +1,82 @@
 {
-module Scanner where
+module Microc.Scanner where
+import Microc.Ast
+
 }
 
 %wrapper "basic"
 
-$letter = [a-zA-Z]
+$alpha = [a-zA-Z]
 $digit = 0-9
 
 tokens :-
  $white+  ;
  "/*" ( [^\*] | \*+ [^\/] )* "*/"    ;
- "("      { \_ -> LPAREN }
- ")"      { \_ -> RPAREN }
- "{"      { \_ -> LBRACE }
- "}"      { \_ -> RBRACE }
- ";"      { \_ -> LSemi }
- ","      { \_ -> LComma }
- "+"      { \_ -> LOp Add }
- "-"      { \_ -> LOp Sub }
- "*"      { \_ -> LOp Mult }
- "/"      { \_ -> LOp Div }
- "="      { \_ -> LAssign }
- "=="     { \_ -> LOp Equal }
- "!="     { \_ -> LOp Neq }
- '<'      { \_ -> LOp Less }
- "<="     { \_ -> LOp Leq }
- ">"      { \_ -> LOp Greater }
- ">="     { \_ -> LOp Geq }
- "&&"     { \_ -> LOp And }
- "||"     { \_ -> LOp Or }
- "!"      { \_ -> LUop Not }
+ \(       { \_ -> LPAREN }
+ \)       { \_ -> RPAREN }
+ \{       { \_ -> LBRACE }
+ \}       { \_ -> RBRACE }
+ \;       { \_ -> LSemi        }
+ \,       { \_ -> LComma        }
+ \+       { \_ -> LAdd        }
+ \-       { \_ -> LSub        }
+ \*       { \_ -> LMul        }
+ \/       { \_ -> LDiv        }
+ \=       { \_ -> LAssign         }
+ \=\=     { \_ -> LEqual        }
+ \!\=     { \_ -> LNeq        }
+ \<       { \_ -> LLess        }
+ \<\=     { \_ -> LLeq        }
+ \>       { \_ -> LGreater        }
+ \>\=     { \_ -> LGeq        }
+ \&\&     { \_ -> LAnd        }
+ \|\|     { \_ -> LOr          }
+ \!       { \_ -> LNot             }
  "if"     { \_ -> LIf }
  "else"   { \_ -> LElse }
  "for"    { \_ -> LFor }
  "while"  { \_ -> LWhile }
  "return" { \_ -> LRet }
- "int"    { \_ -> LType Int }
- "bool"   { \_ -> LType Bool }
- "void"   { \_ -> LType Void }
+ "int"    { \_ -> LType TyInt }
+ "bool"   { \_ -> LType TyBool }
+ "void"   { \_ -> LType TyVoid }
  "true"   { \_ -> LBool True }
  "false"  { \_ -> LBool False }
  $digit+  { \s -> LInt (read s) }
+ $digit+ \. $digit+ [eE] $digit* { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }
 
 {
-import Microc.Ast
 data Lexeme = LInt Int
             | LFloat Double
             | LId String
             | LType Type
             | LBool Bool
-            | LOp Op
-            | LUop Uop
             | LRet
             | LAssign
             | LComma
             | LSemi
             | LPAREN
-            | LPAREN
+            | RPAREN
             | LBRACE
-            | LBRACE
+            | RBRACE
             | LBRACK
-            | LBRACK
+            | RBRACK
             | LFor
             | LWhile
             | LIf
             | LElse
-            | LComma
-            
-}
+            | LAdd
+            | LSub
+            | LMul
+            | LDiv
+            | LEqual
+            | LNeq
+            | LLess
+            | LLeq
+            | LGreater
+            | LGeq
+            | LAnd
+            | LOr 
+            | LNot
+            }
