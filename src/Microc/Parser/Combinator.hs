@@ -25,7 +25,7 @@ opChar = oneOf chars where
 opTable :: [[Operator Parser Expr]]
 opTable =
   [ [unary Neg "-", unary Not "!"]
-  , [infixR Power "^"]
+  , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add "+", infixL Sub "-"]
   , [infixL Leq "<=", infixL Geq ">=", infixL Less "<", infixL Greater ">"]

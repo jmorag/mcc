@@ -35,7 +35,7 @@ tokens :-
  \!       { \_ -> LNot     }
  \&       { \_ -> LBitAnd  }
  \|       { \_ -> LBitOr   }
- \^       { \_ -> LPow     }
+ \*\*     { \_ -> LPow     }
  "if"     { \_ -> LIf      }
  "else"   { \_ -> LElse    }
  "for"    { \_ -> LFor     }

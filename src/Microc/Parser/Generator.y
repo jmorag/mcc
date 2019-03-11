@@ -42,7 +42,7 @@ import Data.Text (pack)
   '!'    { LNot }
   '&'    { LBitAnd }
   '|'    { LBitOr  }
-  '^'    { LPow }
+  '**'   { LPow }
 
 %nonassoc NOELSE
 %nonassoc else
@@ -55,7 +55,7 @@ import Data.Text (pack)
 %left '<' '>' '<=' '>='
 %left '+' '-'
 %left '*' '/'
-%right '^'
+%right '**'
 %right '!' NEG
 
 
@@ -132,7 +132,7 @@ expr:
   | expr '|'  expr         { Binop  BitOr   $1 $3 }
   | expr '&&' expr         { Binop  And  $1 $3 }
   | expr '||' expr         { Binop  Or   $1 $3 }
-  | expr '^'  expr         { Binop  Power $1 $3 }
+  | expr '**'  expr        { Binop  Power $1 $3 }
   | '-' expr %prec NEG     { Unop Neg $2 }
   | '!' expr               { Unop Not  $2 }
   | expr '=' expr          { Assign $1 $3 }
