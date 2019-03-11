@@ -1,6 +1,6 @@
 module Main where
 
-import           Microc hiding (Parser)
+import           Microc                  hiding ( Parser )
 
 import           Options.Applicative
 import           LLVM.Pretty
@@ -30,13 +30,21 @@ actionP =
     <|> pure Run
 
 parserP :: Parser ParserType
-parserP = flag' Combinator (long "combinator" <> help "Use the megaparsec parser implementation.")
-  <|> flag' Generator (long "generator" <> short 'g' <> help "Use alex and happy to parse.")
-  <|> pure Combinator -- default to megaparsec
+parserP =
+  flag'
+      Combinator
+      (long "combinator" <> help "Use the megaparsec parser implementation (default).")
+    <|> flag'
+          Generator
+          (long "generator" <> short 'g' <> help "Use alex and happy to parse.")
+    <|> pure Combinator -- default to megaparsec
 
 optionsP :: Parser Options
 optionsP =
-  Options <$> actionP <*> strArgument (help "Source file" <> metavar "FILE") <*> parserP 
+  Options
+    <$> actionP
+    <*> strArgument (help "Source file" <> metavar "FILE")
+    <*> parserP
 
 main :: IO ()
 main = runOpts =<< execParser (optionsP `withInfo` infoString)
@@ -51,9 +59,9 @@ runOpts (Options action infile ptype) = do
   program <- T.readFile infile
   let parseTree = case ptype of
         Combinator -> runParser programP infile program
-        Generator -> Right $ parse . alexScanTokens $ T.unpack program
+        Generator  -> Right $ parse . alexScanTokens $ T.unpack program
   case parseTree of
-    Left err -> putStrLn $ errorBundlePretty err
+    Left  err -> putStrLn $ errorBundlePretty err
     Right ast -> case action of
       Ast -> putDoc $ pretty ast <> "\n"
       _   -> case checkProgram ast of

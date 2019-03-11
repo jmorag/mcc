@@ -40,27 +40,14 @@ main = defaultMain =<< goldenTests
 -- General structure taken from 
 -- https://ro-che.info/articles/2017-12-04-golden-tests
 goldenTests :: IO TestTree
-goldenTests =
-  testGroup "all" <$> sequence [passing, failing, parsing, parserFail]
+goldenTests = testGroup "all" <$> sequence [passing, failing, parsing]
 
 parsing :: IO TestTree
 parsing = do
-  mcFiles <- findByExtension [".mc"] "tests/pass"
-  testGroup "parse" <$> forM
-    mcFiles
-    (\mcFile -> do
-      input <- T.readFile mcFile
-      return $ testCase mcFile $ assertEqual
-        mcFile
-        (runParser programP mcFile input)
-        (Right . parse . alexScanTokens $ cs input)
-    )
-
-parserFail :: IO TestTree
-parserFail = do
-  mcFiles <- findByExtension [".mc"] "tests/fail"
-  testGroup "parse-fail" <$> forM
-    mcFiles
+  mcFiles   <- findByExtension [".mc"] "tests/pass"
+  failFiles <- findByExtension [".mc"] "tests/fail"
+  testGroup "parsing" <$> forM
+    (mcFiles ++ failFiles)
     (\mcFile -> do
       input <- T.readFile mcFile
       case runParser programP mcFile input of
