@@ -13,9 +13,8 @@ extra-source-files: README.md
 
 dependencies:
     - base >= 4.7 && < 5
-    - megaparsec >= 7 && < 8
-    - parser-combinators >= 1 && < 2
     - mtl >= 2.2 && <= 3
+    - array
     - containers
     - text
     - string-conversions
@@ -28,8 +27,14 @@ dependencies:
     - pretty-simple
     - llvm-hs-pure
     - llvm-hs-pretty
+    - megaparsec
+    - parser-combinators
 
 default-extensions: OverloadedStrings, LambdaCase
+
+build-tools:
+  - alex
+  - happy
 
 library:
   source-dirs: src
@@ -48,4 +53,5 @@ tests:
     dependencies:
         - tasty
         - tasty-golden
+        - tasty-hunit
         - mcc

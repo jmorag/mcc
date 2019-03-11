@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 136bdfeed0d410d068898939815fef64b0d8ad44c19f3ba04d4403fd624b00da
+-- hash: 4659109c06336e3a2ebe687561be38b24f47f0a3dbe6847f09294766574cc401
 
 name:           mcc
 version:        0.1.0.0
@@ -29,8 +29,10 @@ library
       Microc.Ast
       Microc.Codegen
       Microc.Parser.Combinator
+      Microc.Parser.Generator
       Microc.Sast
       Microc.Scanner.Combinator
+      Microc.Scanner.Generator
       Microc.Semant
       Microc.Semant.Analysis
       Microc.Semant.Error
@@ -41,17 +43,21 @@ library
       src
   default-extensions: OverloadedStrings, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , bytestring
     , containers
     , directory
     , filepath
     , llvm-hs-pretty
     , llvm-hs-pure
-    , megaparsec >=7 && <8
+    , megaparsec
     , mtl >=2.2 && <=3
-    , parser-combinators >=1 && <2
+    , parser-combinators
     , pretty-simple
     , prettyprinter
     , process
@@ -68,8 +74,12 @@ executable mcc
       app
   default-extensions: OverloadedStrings, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , bytestring
     , containers
     , directory
@@ -77,10 +87,10 @@ executable mcc
     , llvm-hs-pretty
     , llvm-hs-pure
     , mcc
-    , megaparsec >=7 && <8
+    , megaparsec
     , mtl >=2.2 && <=3
     , optparse-applicative
-    , parser-combinators >=1 && <2
+    , parser-combinators
     , pretty-simple
     , prettyprinter
     , process
@@ -98,8 +108,12 @@ test-suite testall
       tests
   default-extensions: OverloadedStrings, LambdaCase
   ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , bytestring
     , containers
     , directory
@@ -107,15 +121,16 @@ test-suite testall
     , llvm-hs-pretty
     , llvm-hs-pure
     , mcc
-    , megaparsec >=7 && <8
+    , megaparsec
     , mtl >=2.2 && <=3
-    , parser-combinators >=1 && <2
+    , parser-combinators
     , pretty-simple
     , prettyprinter
     , process
     , string-conversions
     , tasty
     , tasty-golden
+    , tasty-hunit
     , text
     , unix
   default-language: Haskell2010
