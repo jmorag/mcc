@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 86cf81ea06951206db544e8e62605df18babd47d01342178307ac4e2d90e4803
+-- hash: 136bdfeed0d410d068898939815fef64b0d8ad44c19f3ba04d4403fd624b00da
 
 name:           mcc
 version:        0.1.0.0
@@ -28,9 +28,9 @@ library
       Microc
       Microc.Ast
       Microc.Codegen
-      Microc.Parser
+      Microc.Parser.Combinator
       Microc.Sast
-      Microc.Scanner
+      Microc.Scanner.Combinator
       Microc.Semant
       Microc.Semant.Analysis
       Microc.Semant.Error

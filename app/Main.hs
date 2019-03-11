@@ -11,8 +11,6 @@ import           Text.Pretty.Simple
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
 
-import           Text.Megaparsec                ( errorBundlePretty )
-
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data Options = Options { action :: Action, infile :: FilePath }
 

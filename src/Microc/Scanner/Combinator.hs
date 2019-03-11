@@ -1,4 +1,4 @@
-module Microc.Scanner where
+module Microc.Scanner.Combinator where
 
 import           Data.Void
 import           Text.Megaparsec

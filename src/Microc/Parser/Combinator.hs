@@ -1,11 +1,12 @@
-module Microc.Parser
+module Microc.Parser.Combinator
   ( programP
   , runParser
+  , errorBundlePretty
   )
 where
 
 import           Microc.Ast
-import           Microc.Scanner
+import           Microc.Scanner.Combinator
 import           Text.Megaparsec
 import           Control.Monad.Combinators.Expr
 
@@ -54,6 +55,7 @@ termP =
     <|> Id <$> identifier
 
 exprP :: Parser Expr
+
 exprP = makeExprParser termP opTable
 
 typeP :: Parser Type
