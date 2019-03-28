@@ -55,3 +55,12 @@ tests:
         - tasty-golden
         - tasty-hunit
         - mcc
+
+benchmarks:
+  bench:
+    main: Bench.hs
+    source-dirs: bench
+    dependencies:
+        - criterion
+        - mcc
+        - tasty-golden

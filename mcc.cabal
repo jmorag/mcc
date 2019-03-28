@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4659109c06336e3a2ebe687561be38b24f47f0a3dbe6847f09294766574cc401
+-- hash: 3b0af375283c9bcc86015a1412c86347d19374837f82709a74a33eb7f1dc5c1b
 
 name:           mcc
 version:        0.1.0.0
@@ -131,6 +131,41 @@ test-suite testall
     , tasty
     , tasty-golden
     , tasty-hunit
+    , text
+    , unix
+  default-language: Haskell2010
+
+benchmark bench
+  type: exitcode-stdio-1.0
+  main-is: Bench.hs
+  other-modules:
+      Paths_mcc
+  hs-source-dirs:
+      bench
+  default-extensions: OverloadedStrings, LambdaCase
+  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  build-tools:
+      alex
+    , happy
+  build-depends:
+      array
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , criterion
+    , directory
+    , filepath
+    , llvm-hs-pretty
+    , llvm-hs-pure
+    , mcc
+    , megaparsec
+    , mtl >=2.2 && <=3
+    , parser-combinators
+    , pretty-simple
+    , prettyprinter
+    , process
+    , string-conversions
+    , tasty-golden
     , text
     , unix
   default-language: Haskell2010
