@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c50651b7fde62355baf13ac9ce1d6281107dc3d9ba7edd64d9dc2fae65dceca1
+-- hash: 9a536f28a1eef4615f1357e7a65c6e22333cff22aae460c9806661f1f0fbfd41
 
 name:           mcc
 version:        0.1.0.0
@@ -37,6 +37,7 @@ library
       Microc.Semant.Analysis
       Microc.Semant.Error
       Microc.Toplevel
+      Microc.Utils
   other-modules:
       Paths_mcc
   hs-source-dirs:

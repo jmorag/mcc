@@ -25,6 +25,7 @@ import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Data.String                    ( fromString )
 
+import           Microc.Utils
 import           Microc.Sast
 import           Microc.Ast                     ( Type(..)
                                                 , Op(..)
@@ -71,13 +72,13 @@ codegenSexpr (TyInt, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   (case op of
-      Add  -> L.add
-      Sub  -> L.sub
-      Mult -> L.mul
-      Div  -> L.sdiv
+      Add    -> L.add
+      Sub    -> L.sub
+      Mult   -> L.mul
+      Div    -> L.sdiv
       BitAnd -> L.and
       BitOr  -> L.or
-      _    -> error "Internal error - semant failed"
+      _      -> error "Internal error - semant failed"
     )
     lhs'
     rhs'
@@ -85,13 +86,13 @@ codegenSexpr (TyFloat, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   (case op of
-      Add  -> L.fadd
-      Sub  -> L.fsub
-      Mult -> L.fmul
-      Div  -> L.fdiv
+      Add    -> L.fadd
+      Sub    -> L.fsub
+      Mult   -> L.fmul
+      Div    -> L.fdiv
       BitAnd -> L.and
       BitOr  -> L.or
-      _    -> error "Internal error - semant failed"
+      _      -> error "Internal error - semant failed"
     )
     lhs'
     rhs'
@@ -127,11 +128,11 @@ codegenSexpr (TyBool, SBinop op lhs@(TyBool, _) rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   (case op of
-      And    -> L.and
-      Or     -> L.or
-      Equal  -> L.icmp IP.EQ
-      Neq    -> L.icmp IP.NE
-      _      -> error "Internal error - semant failed"
+      And   -> L.and
+      Or    -> L.or
+      Equal -> L.icmp IP.EQ
+      Neq   -> L.icmp IP.NE
+      _     -> error "Internal error - semant failed"
     )
     lhs'
     rhs'
@@ -209,7 +210,7 @@ codegenStatement (SIf pred cons alt) = mdo
   return ()
 
 -- Implementing a do-while construct is actually easier than while, so we
--- implement while as `if pred //enter do while// else leave
+-- implement while as `if pred //enter do while// else leave`
 codegenStatement (SWhile pred body) = mdo
   -- check the condition the first time
   bool <- codegenSexpr pred
@@ -246,41 +247,38 @@ codegenFunc f = mdo
   -- environment _before_ generating its body in order to handle the
   -- possibility of the function calling itself recursively
   modify $ M.insert (sname f) fun
+  -- We wrap generating the function inside of the `locally` combinator in
+  -- order to prevent local variables from escaping the scope of the function
+  fun <-
+    locally
+      $ let name = mkName (cs $ sname f)
+            mkParam (Bind t n) = (ltypeOfTyp t, L.ParameterName (cs n))
+            args  = map mkParam (sformals f)
+            retty = ltypeOfTyp (styp f)
 
-  -- Get the initial environment after we've added the name of the function and
-  -- before we've polluted it with local varaible names
-  state <- get
+            -- Generate the body of the function:
+            body ops = do
+              let pairs = zip ops (sformals f)
+              _entry <- L.block `L.named` "entry"
+              -- Add the formal parameters to the map, allocate them on the stack,
+              -- and then emit the necessary store instructions
+              forM_ pairs $ \(op, Bind _ n) -> do
+                let ltype = typeOf op
+                addr <- L.alloca ltype Nothing 0
+                L.store addr 0 op
+                modify $ M.insert n addr
+              -- Same for the locals, except we do not emit the store instruction for
+              -- them
+              forM_ (slocals f) $ \(Bind t n) -> do
+                let ltype = ltypeOfTyp t
+                addr <- L.alloca ltype Nothing 0
+                modify $ M.insert n addr
+              -- Evaluate the actual body of the function after making the necessary
+              -- allocations
+              codegenStatement (sbody f)
 
-  let name = mkName (cs $ sname f)
-      mkParam (Bind t n) = (ltypeOfTyp t, L.ParameterName (cs n))
-      args  = map mkParam (sformals f)
-      retty = ltypeOfTyp (styp f)
-
-      -- Generate the body of the function:
-      body ops = do
-        let pairs = zip ops (sformals f)
-        _entry <- L.block `L.named` "entry"
-        -- Add the formal parameters to the map, allocate them on the stack,
-        -- and then emit the necessary store instructions
-        forM_ pairs $ \(op, Bind _ n) -> do
-          let ltype = typeOf op
-          addr <- L.alloca ltype Nothing 0
-          L.store addr 0 op
-          modify $ M.insert n addr
-        -- Same for the locals, except we do not emit the store instruction for
-        -- them
-        forM_ (slocals f) $ \(Bind t n) -> do
-          let ltype = ltypeOfTyp t
-          addr <- L.alloca ltype Nothing 0
-          modify $ M.insert n addr
-        -- Evaluate the actual body of the function after making the necessary
-        -- allocations
-        codegenStatement (sbody f)
-
-  fun <- L.function name args retty body
-  -- Undo the modifications to the environment made after we inserted the
-  -- function so no out of scope variables are kept in the map.
-  put state
+        in  L.function name args retty body
+  return ()
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = do

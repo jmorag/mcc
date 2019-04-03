@@ -8,6 +8,7 @@ import           Microc.Ast
 import           Microc.Sast
 import           Microc.Semant.Error
 import           Microc.Semant.Analysis
+import           Microc.Utils
 import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Control.Monad.Except
@@ -237,10 +238,3 @@ checkProgram (Program binds funcs) = evalState
     case find (\f -> sname f == "main") funcs' of
       Nothing -> throwError NoMain
       Just _  -> return (globals, funcs')
-
-locally :: MonadState s m => m a -> m a
-locally computation = do
-  oldState <- get
-  result   <- computation
-  put oldState
-  return result
