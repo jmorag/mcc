@@ -14,9 +14,7 @@ import           Microc
 
 import           Data.String.Conversions
 import qualified Data.Text.IO                  as T
-import           Data.Text                      ( Text
-                                                , unpack
-                                                )
+import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 import           Data.Text.Prettyprint.Doc.Render.Text
 import           Control.Monad
