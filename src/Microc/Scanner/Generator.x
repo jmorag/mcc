@@ -33,9 +33,6 @@ tokens :-
  \&\&     { \_ -> LAnd     }
  \|\|     { \_ -> LOr      }
  \!       { \_ -> LNot     }
- \&       { \_ -> LBitAnd  }
- \|       { \_ -> LBitOr   }
- \*\*     { \_ -> LPow     }
  "if"     { \_ -> LIf      }
  "else"   { \_ -> LElse    }
  "for"    { \_ -> LFor     }
@@ -84,7 +81,4 @@ data Lexeme = LInt Int
             | LAnd
             | LOr
             | LNot
-            | LBitAnd
-            | LBitOr
-            | LPow
             }

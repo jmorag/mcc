@@ -40,22 +40,16 @@ import Data.Text (pack)
   '&&'   { LAnd }
   '||'   { LOr  }
   '!'    { LNot }
-  '&'    { LBitAnd }
-  '|'    { LBitOr  }
-  '**'   { LPow }
 
 %nonassoc NOELSE
 %nonassoc else
 %right '='
-%left '|'
-%left '&'
 %left '||'
 %left '&&'
 %left '==' '!='
 %left '<' '>' '<=' '>='
 %left '+' '-'
 %left '*' '/'
-%right '**'
 %right '!' NEG
 
 
@@ -128,11 +122,8 @@ expr:
   | expr '<=' expr         { Binop  Leq  $1 $3 }
   | expr '>'  expr         { Binop  Greater $1 $3 }
   | expr '>=' expr         { Binop  Geq  $1 $3 }
-  | expr '&'  expr         { Binop  BitAnd  $1 $3 }
-  | expr '|'  expr         { Binop  BitOr   $1 $3 }
   | expr '&&' expr         { Binop  And  $1 $3 }
   | expr '||' expr         { Binop  Or   $1 $3 }
-  | expr '**'  expr        { Binop  Power $1 $3 }
   | '-' expr %prec NEG     { Unop Neg $2 }
   | '!' expr               { Unop Not  $2 }
   | expr '=' expr          { Assign $1 $3 }

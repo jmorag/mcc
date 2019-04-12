@@ -76,8 +76,6 @@ codegenSexpr (TyInt, SBinop op lhs rhs) = do
       Sub    -> L.sub
       Mult   -> L.mul
       Div    -> L.sdiv
-      BitAnd -> L.and
-      BitOr  -> L.or
       _      -> error "Internal error - semant failed"
     )
     lhs'
@@ -90,8 +88,6 @@ codegenSexpr (TyFloat, SBinop op lhs rhs) = do
       Sub    -> L.fsub
       Mult   -> L.fmul
       Div    -> L.fdiv
-      BitAnd -> L.and
-      BitOr  -> L.or
       _      -> error "Internal error - semant failed"
     )
     lhs'
@@ -290,11 +286,6 @@ emitBuiltIns = do
   floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
   modify $ M.insert "_intFmt" intFmt
   modify $ M.insert "_floatFmt" floatFmt
-
-  llvmPow <- L.extern (mkName "llvm.pow.f64")
-                      [AST.double, AST.double]
-                      AST.double
-  modify $ M.insert "llvm.pow" llvmPow
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do

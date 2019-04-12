@@ -91,16 +91,8 @@ checkExpr expr
             Sub    -> checkArith
             Mult   -> checkArith
             Div    -> checkArith
-            BitAnd -> checkArith
-            BitOr  -> checkArith
             And    -> checkBool
             Or     -> checkBool
-            -- Power operator no longer exists in Sast
-            Power  -> do
-              unless (t1 == TyFloat)
-                     (throwError $ TypeError [TyFloat] t1 (Expr expr))
-              return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
-                 -- remaining are relational operators
             _ -> do
               unless (isNumeric t1) $ throwError $ TypeError [TyInt, TyFloat]
                                                              t1
