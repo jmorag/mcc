@@ -134,8 +134,10 @@ expr:
   | expr '||' expr         { Binop  Or   $1 $3 }
   | expr '**'  expr        { Binop  Power $1 $3 }
   | '-' expr %prec NEG     { Unop Neg $2 }
+  | '*' expr %prec NEG     { Unop Deref $2 }
+  | '&' expr %prec NEG     { Unop Addr $2 }
   | '!' expr               { Unop Not  $2 }
-  | expr '=' expr          { Assign $1 $3 }
+  | expr '=' expr          { Binop  Assign $1 $3 }
   | id '(' actuals_opt ')' { Call (pack $1) $3 }
   | '(' expr ')'           { $2 }
 
