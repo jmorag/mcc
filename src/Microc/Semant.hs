@@ -71,6 +71,7 @@ checkExpr expr
             Nothing -> throwError $ UndefinedSymbol s Var expr
             Just ty -> return (ty, SId s)
 
+        -- Binops need big overhaul now that we have pointers
         Binop op lhs rhs -> do
           lhs'@(t1, _) <- checkExpr lhs
           rhs'@(t2, _) <- checkExpr rhs
@@ -100,8 +101,14 @@ checkExpr expr
               unless (t1 == TyFloat)
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
-                 -- remaining are relational operators
-            _ -> do
+
+            Assign ->
+              case snd lhs' of
+                SId _ -> return (t1, SBinop Assign lhs' rhs')
+                SUnop Deref _ -> return (t1, SBinop Assign lhs' rhs')
+                _ -> throwError $ AssignmentError lhs rhs
+
+            _relational -> do
               unless (isNumeric t1) $ throwError $ TypeError [TyInt, TyFloat]
                                                              t1
                                                              (Expr expr)
@@ -120,14 +127,15 @@ checkExpr expr
                                                              ty
                                                              (Expr expr)
               return (ty, SUnop Not e')
+            Deref -> case ty of
+              Pointer t -> return (t, SUnop Deref e')
+              _         -> throwError $ TypeError
+                [Pointer TyVoid, Pointer TyInt, Pointer TyFloat]
+                ty
+                (Expr expr)
 
-        Assign s e -> do
-          rhs@(ty , _  ) <- checkExpr e
-          (    ty', lhs) <- checkExpr s
-          unless (ty == ty') $ throwError $ TypeError [ty'] ty (Expr expr)
-          case lhs of
-            SId s -> return (ty, SAssign s rhs)
-            _     -> throwError $ AssignmentError s e
+            Addr -> return (Pointer ty, SUnop Addr e')
+
 
         Call s es -> do
           funcs <- gets funcs

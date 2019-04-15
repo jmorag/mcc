@@ -50,10 +50,11 @@ instance ConvertibleStrings Text ShortByteString where
   convertString = fromString . T.unpack
 
 ltypeOfTyp :: Type -> AST.Type
-ltypeOfTyp TyVoid  = AST.void
-ltypeOfTyp TyInt   = AST.i32
-ltypeOfTyp TyFloat = AST.double
-ltypeOfTyp TyBool  = AST.IntegerType 1
+ltypeOfTyp TyVoid      = AST.void
+ltypeOfTyp TyInt       = AST.i32
+ltypeOfTyp TyFloat     = AST.double
+ltypeOfTyp TyBool      = AST.IntegerType 1
+ltypeOfTyp (Pointer t) = AST.ptr (ltypeOfTyp t)
 
 charStar :: AST.Type
 charStar = AST.ptr $ AST.IntegerType 8
@@ -68,95 +69,91 @@ codegenSexpr (_      , SId name   ) = do
     Just addr -> L.load addr 0
     Nothing -> error . cs $ "Internal error - undefined variable name " <> name
 
-codegenSexpr (TyInt, SBinop op lhs rhs) = do
+codegenSexpr (t, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
-  (case op of
-      Add    -> L.add
-      Sub    -> L.sub
-      Mult   -> L.mul
-      Div    -> L.sdiv
-      BitAnd -> L.and
-      BitOr  -> L.or
-      _      -> error "Internal error - semant failed"
-    )
-    lhs'
-    rhs'
-codegenSexpr (TyFloat, SBinop op lhs rhs) = do
-  lhs' <- codegenSexpr lhs
-  rhs' <- codegenSexpr rhs
-  (case op of
-      Add    -> L.fadd
-      Sub    -> L.fsub
-      Mult   -> L.fmul
-      Div    -> L.fdiv
-      BitAnd -> L.and
-      BitOr  -> L.or
-      _      -> error "Internal error - semant failed"
-    )
-    lhs'
-    rhs'
-codegenSexpr (TyBool, SBinop op lhs@(TyInt, _) rhs) = do
-  lhs' <- codegenSexpr lhs
-  rhs' <- codegenSexpr rhs
-  (case op of
-      Equal   -> L.icmp IP.EQ
-      Neq     -> L.icmp IP.NE
-      Less    -> L.icmp IP.SLT
-      Leq     -> L.icmp IP.SLE
-      Greater -> L.icmp IP.SGT
-      Geq     -> L.icmp IP.SGE
+  case op of
+    Add -> case t of
+      TyInt   -> L.add lhs' rhs'
+      TyFloat -> L.fadd lhs' rhs'
       _       -> error "Internal error - semant failed"
-    )
-    lhs'
-    rhs'
-codegenSexpr (TyBool, SBinop op lhs@(TyFloat, _) rhs) = do
-  lhs' <- codegenSexpr lhs
-  rhs' <- codegenSexpr rhs
-  (case op of
-      Equal   -> L.fcmp FP.OEQ
-      Neq     -> L.fcmp FP.ONE
-      Less    -> L.fcmp FP.OLT
-      Leq     -> L.fcmp FP.OLE
-      Greater -> L.fcmp FP.OGT
-      Geq     -> L.fcmp FP.OGE
+    Sub -> case t of
+      TyInt   -> L.sub lhs' rhs'
+      TyFloat -> L.fsub lhs' rhs'
       _       -> error "Internal error - semant failed"
-    )
-    lhs'
-    rhs'
-codegenSexpr (TyBool, SBinop op lhs@(TyBool, _) rhs) = do
-  lhs' <- codegenSexpr lhs
-  rhs' <- codegenSexpr rhs
-  (case op of
-      And   -> L.and
-      Or    -> L.or
-      Equal -> L.icmp IP.EQ
-      Neq   -> L.icmp IP.NE
-      _     -> error "Internal error - semant failed"
-    )
-    lhs'
-    rhs'
+    Mult -> case t of
+      TyInt   -> L.mul lhs' rhs'
+      TyFloat -> L.fmul lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Div -> case t of
+      TyInt   -> L.sdiv lhs' rhs'
+      TyFloat -> L.fdiv lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Power ->
+      error "Internal error - Power should have been eliminated in semant"
+    Equal -> case fst lhs of
+      TyInt   -> L.icmp IP.EQ lhs' rhs'
+      TyBool  -> L.icmp IP.EQ lhs' rhs'
+      TyFloat -> L.fcmp FP.OEQ lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Neq -> case fst lhs of
+      TyInt   -> L.icmp IP.NE lhs' rhs'
+      TyBool  -> L.icmp IP.NE lhs' rhs'
+      TyFloat -> L.fcmp FP.ONE lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Less -> case fst lhs of
+      TyInt   -> L.icmp IP.SLT lhs' rhs'
+      TyBool  -> L.icmp IP.SLT lhs' rhs'
+      TyFloat -> L.fcmp FP.OLT lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Leq -> case fst lhs of
+      TyInt   -> L.icmp IP.SLE lhs' rhs'
+      TyBool  -> L.icmp IP.SLE lhs' rhs'
+      TyFloat -> L.fcmp FP.OLE lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Greater -> case fst lhs of
+      TyInt   -> L.icmp IP.SGT lhs' rhs'
+      TyBool  -> L.icmp IP.SGT lhs' rhs'
+      TyFloat -> L.fcmp FP.OGT lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    Geq -> case fst lhs of
+      TyInt   -> L.icmp IP.SGE lhs' rhs'
+      TyBool  -> L.icmp IP.SGE lhs' rhs'
+      TyFloat -> L.fcmp FP.OGE lhs' rhs'
+      _       -> error "Internal error - semant failed"
+    -- Relational operators all emit the same instructions
+    -- Calling And between floats or pointers doesn't make sense,
+    -- but semant catches that. Calling BitAnd between them IS allowed,
+    -- and makes even less sense, but this is C, and we "trust" programmers
+    -- to know why they want to do such things.
+    And    -> L.and lhs' rhs'
+    Or     -> L.or lhs' rhs'
+    BitAnd -> L.and lhs' rhs'
+    BitOr  -> L.or lhs' rhs'
+    Assign -> do
+      addr <- case snd lhs of
+        SId name      -> gets (M.! name)
+        SUnop Deref l -> codegenSexpr l
+        _             -> error "Internal error - semant failed"
+      L.store addr 0 rhs'
+      return rhs'
 
--- The Haskell LLVM bindings don't provide numerical or boolean negation
--- primitives, but they're easy enough to emit ourselves
-codegenSexpr (TyInt, SUnop Neg e) = do
-  zero <- L.int32 0
-  e'   <- codegenSexpr e
-  L.sub zero e'
-codegenSexpr (TyFloat, SUnop Neg e) = do
-  zero <- L.double 0
-  e'   <- codegenSexpr e
-  L.fsub zero e'
-codegenSexpr (TyBool, SUnop Not e) = do
-  true <- L.bit 1
-  e'   <- codegenSexpr e
-  L.xor true e'
+codegenSexpr (t, SUnop op e) = do
+  e' <- codegenSexpr e
+  case op of
+    Neg -> case t of
+      TyInt   -> L.int32 0 >>= flip L.sub e'
+      TyFloat -> L.double 0 >>= flip L.fsub e'
+      _       -> error "Internal error - semant failed"
+    Not -> case t of
+      TyBool -> L.bit 1 >>= L.xor e'
+      _      -> error "Internal error - semant failed"
+    Addr -> case snd e of
+      SId name      -> gets (M.! name)
+      SUnop Deref l -> codegenSexpr l
+      _             -> error "Internal error - semant failed"
+    Deref -> L.load e' 0
 
-codegenSexpr (_, SAssign name e) = do
-  addr <- gets (M.! name)
-  e'   <- codegenSexpr e
-  L.store addr 0 e'
-  return e'
 
 codegenSexpr (_, SCall fun es) = do
   intFormatStr   <- gets (M.! "_intFmt")
@@ -276,7 +273,6 @@ codegenFunc f = mdo
               -- Evaluate the actual body of the function after making the necessary
               -- allocations
               codegenStatement (sbody f)
-
         in  L.function name args retty body
   return ()
 
