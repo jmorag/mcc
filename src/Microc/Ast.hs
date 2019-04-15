@@ -3,11 +3,11 @@ import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 
 data Op = Add | Sub | Mult | Div | Power | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or | BitAnd | BitOr deriving (Show, Eq)
+          And | Or | BitAnd | BitOr | Assign deriving (Show, Eq)
 
-data Uop = Neg | Not deriving (Show, Eq)
+data Uop = Neg | Not | Deref | Addr deriving (Show, Eq)
 
-data Type = TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
+data Type = Pointer Type | TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
 data Bind = Bind Type Text deriving (Show, Eq)
 
 data Expr =
@@ -17,7 +17,6 @@ data Expr =
   | Id Text
   | Binop Op Expr Expr
   | Unop Uop Expr
-  | Assign Expr Expr -- Assignment is an expression and those need to be symmetric
   | Call Text [Expr]
   | Noexpr
   deriving (Show, Eq)
@@ -62,11 +61,14 @@ instance Pretty Op where
     Or -> "||"
     BitAnd -> "&"
     BitOr -> "|"
+    Assign -> "="
 
 instance Pretty Uop where
   pretty = \case
     Neg -> "-"
     Not -> "!"
+    Deref -> "*"
+    Addr -> "&"
 
 instance Pretty Type where
   pretty = \case
@@ -74,6 +76,7 @@ instance Pretty Type where
     TyBool -> "bool"
     TyFloat -> "float"
     TyVoid -> "void"
+    Pointer t -> "*" <+> pretty t
 
 instance Pretty Bind where
   pretty (Bind ty nm) = pretty ty <+> pretty nm
@@ -86,7 +89,6 @@ instance Pretty Expr where
     Id t -> pretty t
     Binop op lhs rhs -> hsep [pretty lhs, pretty op, pretty rhs]
     Unop op e -> pretty op <> pretty e
-    Assign n e -> pretty n <+> equals <+> pretty e
     Call f es -> pretty f <> tupled (map pretty es)
     Noexpr -> mempty
 

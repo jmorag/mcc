@@ -11,7 +11,6 @@ data SExpr' =
   | SId Text
   | SBinop Op SExpr SExpr
   | SUnop Uop SExpr
-  | SAssign Text SExpr
   | SCall Text [SExpr]
   | SNoexpr
   deriving (Show, Eq)
