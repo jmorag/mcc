@@ -19,18 +19,13 @@ compile :: Module -> FilePath -> IO ()
 compile llvmModule outfile =
   bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
     withCurrentDirectory buildDir $ do
-      -- create temporary files for "output.ll", "output.s", and "runtime.o"
+      -- create temporary file for "output.ll"
       (llvm, llvmHandle) <- mkstemps "output" ".ll"
-      assembly           <- fst <$> mkstemps "output" ".s"
-      runtime            <- fst <$> mkstemps "runtime" ".o"
+      let runtime = "../src/runtime.c"
       -- write the llvmModule to a file
       T.hPutStrLn llvmHandle (cs $ ppllvm llvmModule) >> hClose llvmHandle
-      -- call the llc executable on the llvm to turn it into assembly
-      callProcess "llc"   [llvm, "-o", assembly]
-      -- generate the runtime object file
-      callProcess "clang" ["-c", "../src/runtime.c", "-o", runtime]
       -- link the runtime with the assembly
-      callProcess "clang" ["-lm", assembly, runtime, "-o", "../" <> outfile]
+      callProcess "clang" ["-lm", llvm, runtime, "-o", "../" <> outfile]
 
 -- | Compile and llvm module and read the results of executing it
 run :: Module -> IO Text
