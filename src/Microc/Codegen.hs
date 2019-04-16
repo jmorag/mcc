@@ -95,14 +95,30 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       TyInt     -> L.add lhs' rhs'
       TyFloat   -> L.fadd lhs' rhs'
       Pointer _ -> case (fst lhs, fst rhs) of
-        (Pointer _, TyInt    ) -> L.gep lhs' . (: []) =<< L.zext rhs' AST.i64
-        (TyInt    , Pointer _) -> L.gep rhs' . (: []) =<< L.zext lhs' AST.i64
+        (Pointer _, TyInt    ) -> L.gep lhs' [rhs']
+        (TyInt    , Pointer _) -> L.gep rhs' [lhs']
         _                      -> error "Internal error - semant failed"
       _ -> error "Internal error - semant failed"
     Sub -> case t of
-      TyInt   -> L.sub lhs' rhs'
-      TyFloat -> L.fsub lhs' rhs'
-      _       -> error "Internal error - semant failed"
+      TyInt     -> case (fst lhs, fst rhs) of
+        (TyInt, TyInt) -> L.sub lhs' rhs'
+        (Pointer typ, Pointer _) -> do
+          lhs'' <- L.ptrtoint lhs' AST.i64
+          rhs'' <- L.ptrtoint rhs' AST.i64
+          diff  <- L.sub lhs'' rhs''
+          width <- L.int64 (fromIntegral $ alignment typ)
+          L.sdiv diff width
+        _ -> error "Internal error - semant failed"
+      TyFloat   -> L.fsub lhs' rhs'
+      Pointer _ -> do
+        zero <- L.int64 0
+        case (fst lhs, fst rhs) of
+          (Pointer _, TyInt) ->
+            L.zext rhs' AST.i64 >>= L.sub zero >>= L.gep lhs' . (: [])
+          (TyInt, Pointer _) ->
+            L.zext lhs' AST.i64 >>= L.sub zero >>= L.gep rhs' . (: [])
+          _ -> error "Internal error - semant failed"
+      _ -> error "Internal error - semant failed"
     Mult -> case t of
       TyInt   -> L.mul lhs' rhs'
       TyFloat -> L.fmul lhs' rhs'

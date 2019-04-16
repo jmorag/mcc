@@ -114,7 +114,7 @@ checkExpr expr
                      (Pointer t, TyInt     ) -> return (Pointer t, rhs'')
                      (TyInt    , Pointer t ) -> return (Pointer t, rhs'')
                      (Pointer t, Pointer t') -> if t == t'
-                       then return (Pointer t, rhs'')
+                       then return (TyInt, rhs'')
                        else throwError
                          $ TypeError [Pointer t'] (Pointer t) (Expr expr)
                      (TyInt  , TyInt  ) -> return (TyInt, rhs'')
