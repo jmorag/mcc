@@ -152,13 +152,6 @@ codegenSexpr (t, SBinop op lhs rhs) = do
     Or     -> L.or lhs' rhs'
     BitAnd -> L.and lhs' rhs'
     BitOr  -> L.or lhs' rhs'
-    Assign -> do
-      addr <- case snd lhs of
-        SId name      -> gets (M.! name)
-        SUnop Deref l -> codegenSexpr l
-        _             -> error "Internal error - semant failed"
-      L.store addr 0 rhs'
-      return rhs'
 
 codegenSexpr (t, SUnop op e) = do
   e' <- codegenSexpr e
@@ -212,10 +205,10 @@ codegenStatement (SReturn e) = case e of
   (TyVoid, SNoexpr) -> L.retVoid
   _                 -> codegenSexpr e >>= L.ret
 
-codegenStatement (SBlock ss        ) = mapM_ codegenStatement ss
+codegenStatement (SBlock ss     ) = mapM_ codegenStatement ss
 
-codegenStatement (SIf pred cons alt) = mdo
-  bool <- codegenSexpr pred
+codegenStatement (SIf p cons alt) = mdo
+  bool <- codegenSexpr p
   L.condBr bool thenBlock elseBlock
   thenBlock <- L.block `L.named` "then"
   do
@@ -229,10 +222,10 @@ codegenStatement (SIf pred cons alt) = mdo
   return ()
 
 -- Implementing a do-while construct is actually easier than while, so we
--- implement while as `if pred //enter do while// else leave`
-codegenStatement (SWhile pred body) = mdo
+-- implement while as `if p //enter do while// else leave`
+codegenStatement (SWhile p body) = mdo
   -- check the condition the first time
-  bool <- codegenSexpr pred
+  bool <- codegenSexpr p
   L.condBr bool whileBlock mergeBlock
   whileBlock <- L.block `L.named` "while_body"
   do
@@ -241,7 +234,7 @@ codegenStatement (SWhile pred body) = mdo
     -- the check on the condition and go back to the beginning
     check <- L.hasTerminator
     unless check $ do
-      continue <- codegenSexpr pred
+      continue <- codegenSexpr p
       L.condBr continue whileBlock mergeBlock
   mergeBlock <- L.block `L.named` "merge"
   return ()
@@ -313,6 +306,9 @@ emitBuiltIns = do
                       [AST.double, AST.double]
                       AST.double
   modify $ M.insert "llvm.pow" llvmPow
+
+  alloc_ints <- L.extern (mkName "alloc_ints") [AST.i32] (AST.ptr AST.i32)
+  modify $ M.insert "alloc_ints" alloc_ints
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do

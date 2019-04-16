@@ -44,13 +44,18 @@ checkBinds kind binds = do
       return $ Bind ty name
 
 builtIns :: Funcs
-builtIns = M.fromList $ map
-  toFunc
-  [ ("print"   , TyInt)
-  , ("printb"  , TyBool)
-  , ("printf"  , TyFloat)
-  , ("printbig", TyInt)
-  ]
+builtIns =
+  M.fromList
+    $ ( "alloc_ints"
+      , Function (Pointer TyInt) "alloc_ints" [Bind TyInt "n"] [] []
+      )
+    : map
+        toFunc
+        [ ("print"   , TyInt)
+        , ("printb"  , TyBool)
+        , ("printf"  , TyFloat)
+        , ("printbig", TyInt)
+        ]
   where toFunc (name, ty) = (name, Function TyVoid name [Bind ty "x"] [] [])
 
 checkExpr :: Expr -> Semant SExpr
@@ -71,13 +76,13 @@ checkExpr expr
             Nothing -> throwError $ UndefinedSymbol s Var expr
             Just ty -> return (ty, SId s)
 
-        -- Binops need big overhaul now that we have pointers
         Binop op lhs rhs -> do
           lhs'@(t1, _) <- checkExpr lhs
           rhs'@(t2, _) <- checkExpr rhs
-          unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
 
           let
+            assertSym =
+              unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
             checkArith =
               unless (isNumeric t1)
                      (throwError $ TypeError [TyInt, TyFloat] t1 (Expr expr))
@@ -88,27 +93,54 @@ checkExpr expr
                      (throwError $ TypeError [TyBool] t1 (Expr expr))
                 >> return (t1, SBinop op lhs' rhs')
           case op of
-            Add    -> checkArith
-            Sub    -> checkArith
-            Mult   -> checkArith
-            Div    -> checkArith
-            BitAnd -> checkArith
-            BitOr  -> checkArith
-            And    -> checkBool
-            Or     -> checkBool
+            Add
+              -> let rhs'' = SBinop Add lhs' rhs'
+                 in
+                   case (t1, t2) of
+                     (Pointer t, TyInt    ) -> return (Pointer t, rhs'')
+                     (TyInt    , Pointer t) -> return (Pointer t, rhs'')
+                     (TyInt    , TyInt    ) -> return (TyInt, rhs'')
+                     (TyFloat  , TyFloat  ) -> return (TyFloat, rhs'')
+                     _                      -> throwError $ TypeError
+                       [Pointer TyVoid, TyInt, TyFloat]
+                       t1
+                       (Expr expr)
+            Sub
+              -> let rhs'' = SBinop Sub lhs' rhs'
+                 in
+                   case (t1, t2) of
+                     (Pointer t, TyInt     ) -> return (Pointer t, rhs'')
+                     (TyInt    , Pointer t ) -> return (Pointer t, rhs'')
+                     (Pointer t, Pointer t') -> if t == t'
+                       then return (Pointer t, rhs'')
+                       else throwError
+                         $ TypeError [Pointer t'] (Pointer t) (Expr expr)
+                     (TyInt  , TyInt  ) -> return (TyInt, rhs'')
+                     (TyFloat, TyFloat) -> return (TyFloat, rhs'')
+                     _                  -> throwError $ TypeError
+                       [Pointer TyVoid, TyInt, TyFloat]
+                       t1
+                       (Expr expr)
+
+            Mult   -> assertSym >> checkArith
+            Div    -> assertSym >> checkArith
+            BitAnd -> assertSym >> checkArith
+            BitOr  -> assertSym >> checkArith
+            And    -> assertSym >> checkBool
+            Or     -> assertSym >> checkBool
             -- Power operator no longer exists in Sast
             Power  -> do
               unless (t1 == TyFloat)
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
 
-            Assign ->
-              case snd lhs' of
-                SId _ -> return (t1, SBinop Assign lhs' rhs')
-                SUnop Deref _ -> return (t1, SBinop Assign lhs' rhs')
-                _ -> throwError $ AssignmentError lhs rhs
+            Assign -> case snd lhs' of
+              SId _         -> return (t1, SBinop Assign lhs' rhs')
+              SUnop Deref _ -> return (t1, SBinop Assign lhs' rhs')
+              _             -> throwError $ AssignmentError lhs rhs
 
             _relational -> do
+              assertSym
               unless (isNumeric t1) $ throwError $ TypeError [TyInt, TyFloat]
                                                              t1
                                                              (Expr expr)

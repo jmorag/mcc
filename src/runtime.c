@@ -1,5 +1,5 @@
 #include <stdio.h>
-
+#include <stdlib.h>
 /*
  * Font information: one byte per row, 8 rows per character
  * In order, space, 0-9, A-Z
@@ -64,7 +64,11 @@ void printbig(int c)
   } while (index & 0x7); 
 }
 
-
+// Temporary hack to test out allocations
+int *alloc_ints(int n)
+{
+  return (int *)malloc(sizeof(int)*n);
+}
 #ifdef BUILD_TEST
 int main()
 {
