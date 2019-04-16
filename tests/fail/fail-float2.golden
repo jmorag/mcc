@@ -1,2 +1,2 @@
 Type error: expected one of [bool] but got float. Error occured in statement:
--3.5 && 2.5;
+-(3.5) && 2.5;

@@ -1,2 +1,2 @@
 Type error: expected one of [float] but got int. Error occured in statement:
--3.5 && 1;
+-(3.5) && 1;

@@ -1,2 +1,4 @@
-Type error: expected one of [float] but got int. Error occured in statement:
+Type error: expected one of [ void *
+, int
+, float ] but got float. Error occured in statement:
 b + a;

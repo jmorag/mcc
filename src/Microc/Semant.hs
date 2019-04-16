@@ -13,7 +13,9 @@ import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Control.Monad.Except
 import           Data.Maybe                     ( isJust )
-import           Data.Text                      ( Text )
+import           Data.Text                      ( Text
+                                                , singleton
+                                                )
 import           Data.List                      ( find )
 
 type Vars = M.Map (Text, VarKind) Type
@@ -44,19 +46,19 @@ checkBinds kind binds = do
       return $ Bind ty name
 
 builtIns :: Funcs
-builtIns =
-  M.fromList
-    $ ( "alloc_ints"
-      , Function (Pointer TyInt) "alloc_ints" [Bind TyInt "n"] [] []
-      )
-    : map
-        toFunc
-        [ ("print"   , TyInt)
-        , ("printb"  , TyBool)
-        , ("printf"  , TyFloat)
-        , ("printbig", TyInt)
-        ]
-  where toFunc (name, ty) = (name, Function TyVoid name [Bind ty "x"] [] [])
+builtIns = M.fromList $ map
+  toFunc
+  [ ("print"     , [TyInt]  , TyVoid)
+  , ("printb"    , [TyBool] , TyVoid)
+  , ("printf"    , [TyFloat], TyVoid)
+  , ("printbig"  , [TyInt]  , TyVoid)
+  , ("alloc_ints", [TyInt]  , Pointer TyInt)
+  ]
+ where
+  toFunc (name, tys, retty) =
+    ( name
+    , Function retty name (zipWith Bind tys (map singleton ['a' ..])) [] []
+    )
 
 checkExpr :: Expr -> Semant SExpr
 checkExpr expr
@@ -134,7 +136,7 @@ checkExpr expr
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
 
-            Assign -> case snd lhs' of
+            Assign -> assertSym >> case snd lhs' of
               SId _         -> return (t1, SBinop Assign lhs' rhs')
               SUnop Deref _ -> return (t1, SBinop Assign lhs' rhs')
               _             -> throwError $ AssignmentError lhs rhs

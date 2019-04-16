@@ -1,2 +1,4 @@
-Type error: expected one of [bool] but got int. Error occured in statement:
+Type error: expected one of [ void *
+, int
+, float ] but got bool. Error occured in statement:
 d + a;
