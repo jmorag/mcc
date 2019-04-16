@@ -36,6 +36,7 @@ import           Microc.Ast                     ( Type(..)
 import           Data.String.Conversions
 import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
+import           Data.Word                      ( Word32 )
 
 -- When using the IRBuilder, both functions and variables have the type Operand
 type Env = M.Map Text AST.Operand
@@ -59,24 +60,45 @@ ltypeOfTyp (Pointer t) = AST.ptr (ltypeOfTyp t)
 charStar :: AST.Type
 charStar = AST.ptr $ AST.IntegerType 8
 
+alignment :: Type -> Word32
+alignment = \case
+  TyBool    -> 1
+  TyInt     -> 4
+  TyFloat   -> 8
+  TyVoid    -> 0
+  Pointer _ -> 8
+
 codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
-codegenSexpr (_      , SId name   ) = do
-  vars <- get
-  case M.lookup name vars of
-    Just addr -> L.load addr 0
-    Nothing -> error . cs $ "Internal error - undefined variable name " <> name
+codegenSexpr (t      , SId name   ) = do
+  addr <- gets (M.! name)
+  L.load addr (alignment t)
+
+-- Handle assignment separately from other binops
+codegenSexpr (t, SBinop Assign lhs rhs) = do
+  rhs' <- codegenSexpr rhs
+  addr <- case snd lhs of
+    SId name      -> gets (M.! name)
+    SUnop Deref l -> codegenSexpr l
+    _             -> error "Internal error - semant failed"
+  L.store addr (alignment t) rhs'
+  return rhs'
 
 codegenSexpr (t, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   case op of
-    Add -> case t of
-      TyInt   -> L.add lhs' rhs'
-      TyFloat -> L.fadd lhs' rhs'
-      _       -> error "Internal error - semant failed"
+    Assign -> error "Unreachable"
+    Add    -> case t of
+      TyInt     -> L.add lhs' rhs'
+      TyFloat   -> L.fadd lhs' rhs'
+      Pointer _ -> case (fst lhs, fst rhs) of
+        (Pointer _, TyInt    ) -> L.gep lhs' . (: []) =<< L.zext rhs' AST.i64
+        (TyInt    , Pointer _) -> L.gep rhs' . (: []) =<< L.zext lhs' AST.i64
+        _                      -> error "Internal error - semant failed"
+      _ -> error "Internal error - semant failed"
     Sub -> case t of
       TyInt   -> L.sub lhs' rhs'
       TyFloat -> L.fsub lhs' rhs'
@@ -152,7 +174,7 @@ codegenSexpr (t, SUnop op e) = do
       SId name      -> gets (M.! name)
       SUnop Deref l -> codegenSexpr l
       _             -> error "Internal error - semant failed"
-    Deref -> L.load e' 0
+    Deref -> L.load e' (alignment t)
 
 
 codegenSexpr (_, SCall fun es) = do
@@ -259,16 +281,16 @@ codegenFunc f = mdo
               _entry <- L.block `L.named` "entry"
               -- Add the formal parameters to the map, allocate them on the stack,
               -- and then emit the necessary store instructions
-              forM_ pairs $ \(op, Bind _ n) -> do
+              forM_ pairs $ \(op, Bind t n) -> do
                 let ltype = typeOf op
-                addr <- L.alloca ltype Nothing 0
-                L.store addr 0 op
+                addr <- L.alloca ltype Nothing (alignment t)
+                L.store addr (alignment t) op
                 modify $ M.insert n addr
               -- Same for the locals, except we do not emit the store instruction for
               -- them
               forM_ (slocals f) $ \(Bind t n) -> do
                 let ltype = ltypeOfTyp t
-                addr <- L.alloca ltype Nothing 0
+                addr <- L.alloca ltype Nothing (alignment t)
                 modify $ M.insert n addr
               -- Evaluate the actual body of the function after making the necessary
               -- allocations
@@ -301,8 +323,14 @@ codegenGlobal (Bind t n) = do
   modify $ M.insert n var
 
 codegenProgram :: SProgram -> AST.Module
-codegenProgram (globals, funcs) =
-  flip evalState M.empty $ L.buildModuleT "microc" $ do
+codegenProgram (globals, funcs) = modl
+  -- Default to unknown linux target.
+  -- Clang will override this on other architectures so
+  -- it's harmless to include here.
+  { AST.moduleTargetTriple = Just "x86_64-unknown-linux-gnu"
+  }
+ where
+  modl = flip evalState M.empty $ L.buildModuleT "microc" $ do
     emitBuiltIns
     mapM_ codegenGlobal globals
     mapM_ codegenFunc   funcs
