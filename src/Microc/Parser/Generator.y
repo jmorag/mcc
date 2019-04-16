@@ -85,7 +85,14 @@ formal_list:
     typ id                   { [Bind $1 (pack $2)] }
   | formal_list ',' typ id { Bind $3 (pack $4) : $1 }
 
-typ: type { $1 }
+typ:
+    type stars { foldr (const Pointer) $1 $2 }
+
+stars:
+    { [] }
+  | stars '*' { $2 : $1 }
+  -- A hack to get around the power operator
+  | stars '**' { $2 : $2 : $1 }
 
 vdecl_list:
     {- empty -}    { [] }
@@ -135,6 +142,8 @@ expr:
   | expr '**'  expr        { Binop  Power $1 $3 }
   | '-' expr %prec NEG     { Unop Neg $2 }
   | '*' expr %prec NEG     { Unop Deref $2 }
+  -- A hack to get around having the power operator
+  | '**' expr %prec NEG    { Unop Deref (Unop Deref $2) }
   | '&' expr %prec NEG     { Unop Addr $2 }
   | '!' expr               { Unop Not  $2 }
   | expr '=' expr          { Binop  Assign $1 $3 }

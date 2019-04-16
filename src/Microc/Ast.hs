@@ -76,7 +76,7 @@ instance Pretty Type where
     TyBool -> "bool"
     TyFloat -> "float"
     TyVoid -> "void"
-    Pointer t -> "*" <+> pretty t
+    Pointer t -> pretty t <+> "*"
 
 instance Pretty Bind where
   pretty (Bind ty nm) = pretty ty <+> pretty nm
@@ -88,7 +88,7 @@ instance Pretty Expr where
     BoolLit b -> if b then "true" else "false"
     Id t -> pretty t
     Binop op lhs rhs -> hsep [pretty lhs, pretty op, pretty rhs]
-    Unop op e -> pretty op <> pretty e
+    Unop op e -> pretty op <> parens (pretty e)
     Call f es -> pretty f <> tupled (map pretty es)
     Noexpr -> mempty
 

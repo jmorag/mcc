@@ -59,7 +59,7 @@ rws =
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)
  where
-  p = fmap T.pack $ (:) <$> letterChar <*> many alphaNumChar
+  p = fmap T.pack $ (:) <$> letterChar <*> many (alphaNumChar <|> single '_')
   check x = if x `elem` rws
     then fail $ "keyword " <> show x <> " cannot be an identifier"
     else return x
