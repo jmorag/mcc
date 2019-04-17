@@ -1,0 +1,2 @@
+Type error: expected one of [int *] but got void *. Error occured in statement:
+p = malloc(24);
