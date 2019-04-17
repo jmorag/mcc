@@ -324,8 +324,8 @@ emitBuiltIns = do
                       AST.double
   modify $ M.insert "llvm.pow" llvmPow
 
-  alloc_ints <- L.extern (mkName "alloc_ints") [AST.i32] (AST.ptr AST.i32)
-  modify $ M.insert "alloc_ints" alloc_ints
+  malloc <- L.extern (mkName "malloc") [AST.i32] (AST.ptr AST.i8)
+  modify $ M.insert "malloc" malloc
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do

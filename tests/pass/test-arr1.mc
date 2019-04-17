@@ -1,7 +1,7 @@
 int main() {
     int i;
     int *p;
-    p = alloc_ints(10);
+    p = (int *)malloc(4*10); /* Hardcode 4 for sizeof(int). */
     for (i = 0; i < 10; i = i + 1) {
         *(p + i) = i;
         print(*(p + i));

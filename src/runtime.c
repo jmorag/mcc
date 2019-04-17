@@ -64,11 +64,6 @@ void printbig(int c)
   } while (index & 0x7); 
 }
 
-// Temporary hack to test out allocations
-int *alloc_ints(int n)
-{
-  return (int *)malloc(sizeof(int)*n);
-}
 #ifdef BUILD_TEST
 int main()
 {

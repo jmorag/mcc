@@ -48,11 +48,11 @@ checkBinds kind binds = do
 builtIns :: Funcs
 builtIns = M.fromList $ map
   toFunc
-  [ ("print"     , [TyInt]  , TyVoid)
-  , ("printb"    , [TyBool] , TyVoid)
-  , ("printf"    , [TyFloat], TyVoid)
-  , ("printbig"  , [TyInt]  , TyVoid)
-  , ("alloc_ints", [TyInt]  , Pointer TyInt)
+  [ ("print"   , [TyInt]  , TyVoid)
+  , ("printb"  , [TyBool] , TyVoid)
+  , ("printf"  , [TyFloat], TyVoid)
+  , ("printbig", [TyInt]  , TyVoid)
+  , ("malloc"  , [TyInt]  , Pointer TyVoid)
   ]
  where
   toFunc (name, tys, retty) =
