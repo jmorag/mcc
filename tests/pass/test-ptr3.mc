@@ -13,6 +13,9 @@ int main()
   c = b + 9;
 
   printb((m - n == g - f) && (g - f == c - b));
+  free((void *)n);
+  free((void *)f);
+  free((void *)b);
 
   return 0;
 }

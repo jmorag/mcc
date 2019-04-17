@@ -6,5 +6,6 @@ int main()
   for (q = p; q - p < 5; q = q + 1) {
     print(q - p);
   }
+  free((void *)p);
   return 0;
 }

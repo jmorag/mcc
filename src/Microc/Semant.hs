@@ -53,6 +53,7 @@ builtIns = M.fromList $ map
   , ("printf"  , [TyFloat], TyVoid)
   , ("printbig", [TyInt]  , TyVoid)
   , ("malloc"  , [TyInt]  , Pointer TyVoid)
+  , ("free"    , [Pointer TyVoid] , TyVoid)
   ]
  where
   toFunc (name, tys, retty) =

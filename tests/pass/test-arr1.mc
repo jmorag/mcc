@@ -6,5 +6,6 @@ int main() {
         *(p + i) = i;
         print(*(p + i));
     }
+    free((void *)p);
     return 0;
 }

@@ -54,11 +54,13 @@ ltypeOfTyp :: Type -> AST.Type
 ltypeOfTyp TyVoid      = AST.void
 ltypeOfTyp TyInt       = AST.i32
 ltypeOfTyp TyFloat     = AST.double
-ltypeOfTyp TyBool      = AST.IntegerType 1
+ltypeOfTyp TyBool      = AST.i1
+-- void * is invalid LLVM
+ltypeOfTyp (Pointer TyVoid) = AST.ptr AST.i8
 ltypeOfTyp (Pointer t) = AST.ptr (ltypeOfTyp t)
 
 charStar :: AST.Type
-charStar = AST.ptr $ AST.IntegerType 8
+charStar = AST.ptr AST.i8
 
 alignment :: Type -> Word32
 alignment = \case
@@ -207,7 +209,10 @@ codegenSexpr (_, SCall fun es) = do
       f <- gets (M.! fun)
       L.call f es'
 
-codegenSexpr (_, SCast t e) = flip L.bitcast (ltypeOfTyp t) =<< codegenSexpr e
+codegenSexpr (_, SCast t e) = do
+  e' <- codegenSexpr e
+  L.bitcast e' (ltypeOfTyp t)
+
 codegenSexpr (_, SNoexpr) = L.int32 0
 
 -- Final catchall
@@ -326,6 +331,8 @@ emitBuiltIns = do
 
   malloc <- L.extern (mkName "malloc") [AST.i32] (AST.ptr AST.i8)
   modify $ M.insert "malloc" malloc
+  free  <- L.extern (mkName "free") [AST.ptr AST.i8] AST.void
+  modify $ M.insert "free" free
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do
