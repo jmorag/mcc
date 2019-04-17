@@ -9,6 +9,7 @@ data SemantError =
     IllegalBinding Name BindingKind VarKind (Maybe Function)
   | UndefinedSymbol Name SymbolKind Expr
   | TypeError { expected :: [Type], got :: Type, errorLoc :: Statement }
+  | CastError { to :: Type, from :: Type, castLoc :: Statement }
   | ArgError { nExpected :: Int, nGot :: Int, callSite :: Expr }
   | Redeclaration Name
   | NoMain
@@ -46,6 +47,9 @@ instance Pretty SemantError where
     TypeError expected got stmt ->
       "Type error: expected one of" <+> pretty expected <+> "but got"
       <+> pretty got <> ". Error occured in statement:" <> hardline <> pretty stmt
+    CastError to from stmt ->
+      "Cast error: can only cast between pointers, not from" <+> pretty from <+> "to" <+> pretty to <> ". Error occured in statement:" <> hardline <> pretty stmt
+
 
     ArgError nExpected nGot callSite ->
       "Argument error: function expected" <+> pretty nExpected <+>

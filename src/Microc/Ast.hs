@@ -18,6 +18,7 @@ data Expr =
   | Binop Op Expr Expr
   | Unop Uop Expr
   | Call Text [Expr]
+  | Cast Type Expr
   | Noexpr
   deriving (Show, Eq)
 
@@ -90,6 +91,7 @@ instance Pretty Expr where
     Binop op lhs rhs -> hsep [pretty lhs, pretty op, pretty rhs]
     Unop op e -> pretty op <> parens (pretty e)
     Call f es -> pretty f <> tupled (map pretty es)
+    Cast t e -> parens (pretty t) <> parens (pretty e)
     Noexpr -> mempty
 
 instance Pretty Statement where

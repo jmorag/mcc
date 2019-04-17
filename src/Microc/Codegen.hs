@@ -207,6 +207,7 @@ codegenSexpr (_, SCall fun es) = do
       f <- gets (M.! fun)
       L.call f es'
 
+codegenSexpr (_, SCast t e) = flip L.bitcast (ltypeOfTyp t) =<< codegenSexpr e
 codegenSexpr (_, SNoexpr) = L.int32 0
 
 -- Final catchall

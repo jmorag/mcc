@@ -12,6 +12,7 @@ data SExpr' =
   | SBinop Op SExpr SExpr
   | SUnop Uop SExpr
   | SCall Text [SExpr]
+  | SCast Type SExpr
   | SNoexpr
   deriving (Show, Eq)
 

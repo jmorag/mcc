@@ -193,6 +193,13 @@ checkExpr expr
                       }
               return (typ f, SCall s es')
 
+        Cast t e -> do
+          e'@(t', _) <- checkExpr e
+          case (t, t') of
+            (Pointer _, Pointer _) -> return (t, SCast t e')
+            _                      -> throwError $ CastError t t' (Expr expr)
+
+
 checkStatement :: Statement -> Semant SStatement
 checkStatement stmt = case stmt of
   Expr e           -> SExpr <$> checkExpr e

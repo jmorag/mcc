@@ -148,6 +148,7 @@ expr:
   | '!' expr               { Unop Not  $2 }
   | expr '=' expr          { Binop  Assign $1 $3 }
   | id '(' actuals_opt ')' { Call (pack $1) $3 }
+  | '(' typ ')' expr %prec NEG { Cast $2 $4 }
   | '(' expr ')'           { $2 }
 
 actuals_opt:
