@@ -2,34 +2,56 @@ module Microc.Ast where
 import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 
-data Op = Add | Sub | Mult | Div | Power | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or | BitAnd | BitOr | Assign deriving (Show, Eq)
+data Op = Add
+        | Sub
+        | Mult
+        | Div
+        | Power
+        | Equal
+        | Neq
+        | Less
+        | Leq
+        | Greater
+        | Geq
+        | And
+        | Or
+        | BitAnd
+        | BitOr
+        | Assign
+        deriving (Show, Eq)
 
-data Uop = Neg | Not | Deref | Addr deriving (Show, Eq)
+data Uop = Neg
+         | Not
+         | Deref
+         | Addr
+         deriving (Show, Eq)
 
-data Type = Pointer Type | TyInt | TyBool | TyFloat | TyVoid deriving (Show, Eq)
+data Type = Pointer Type
+          | TyInt
+          | TyBool
+          | TyFloat
+          | TyVoid
+          deriving (Show, Eq)
 data Bind = Bind Type Text deriving (Show, Eq)
 
-data Expr =
-    Literal Int
-  | Fliteral Double
-  | BoolLit Bool
-  | Id Text
-  | Binop Op Expr Expr
-  | Unop Uop Expr
-  | Call Text [Expr]
-  | Cast Type Expr
-  | Noexpr
-  deriving (Show, Eq)
+data Expr = Literal Int
+          | Fliteral Double
+          | BoolLit Bool
+          | Id Text
+          | Binop Op Expr Expr
+          | Unop Uop Expr
+          | Call Text [Expr]
+          | Cast Type Expr
+          | Noexpr
+          deriving (Show, Eq)
 
-data Statement =
-    Expr Expr
-  | Block [Statement]
-  | Return Expr
-  | If Expr Statement Statement
-  | For Expr Expr Expr Statement
-  | While Expr Statement
-  deriving (Show, Eq)
+data Statement = Expr Expr
+               | Block [Statement]
+               | Return Expr
+               | If Expr Statement Statement
+               | For Expr Expr Expr Statement
+               | While Expr Statement
+               deriving (Show, Eq)
 
 data Function = Function
   { typ  :: Type
