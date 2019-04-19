@@ -3,6 +3,8 @@ module Microc.Parser.Generator where
 import Microc.Scanner.Generator
 import Microc.Ast
 import Data.Text (pack)
+import Prelude hiding (fst, snd)
+
 }
 
 %name parse
@@ -13,9 +15,10 @@ import Data.Text (pack)
   int    { LInt   $$ }
   float  { LFloat $$ }
   id     { LId    $$ }
-  type   { LType  $$ }
+  primtype { LType  $$ }
   bool   { LBool  $$ }
   return { LRet }
+  struct { LStruct }
   '='    { LAssign }
   ','    { LComma }
   ';'    { LSemi }
@@ -62,12 +65,13 @@ import Data.Text (pack)
 %%
 
 program:
-  decls { Program (reverse $ fst $1) (reverse $ snd $1) }
+  decls { Program (reverse $ fst $1) (reverse $ snd $1) (reverse $ thd $1) }
 
 decls:
-   {- empty -} { ([], []) }
- | decls vdecl { (($2 : fst $1), (snd $1)) }
- | decls fdecl { ((fst $1), ($2 : snd $1)) }
+   {- empty -} { ([], [], []) }
+ | decls sdecl { (($2 : fst $1), (snd $1), (thd $1)) }
+ | decls vdecl { ((fst $1), ($2 : snd $1), (thd $1)) }
+ | decls fdecl { ((fst $1), (snd $1), ($2 : thd $1)) }
 
 fdecl:
    typ id '(' formals_opt ')' '{' vdecl_list stmt_list '}'
@@ -86,13 +90,17 @@ formal_list:
   | formal_list ',' typ id { Bind $3 (pack $4) : $1 }
 
 typ:
-    type stars { foldr (const Pointer) $1 $2 }
+    primtype stars { foldr (const Pointer) $1 $2 }
+  | struct id { TyStruct (pack $2) }
 
 stars:
     { [] }
   | stars '*' { $2 : $1 }
   -- A hack to get around the power operator
   | stars '**' { $2 : $2 : $1 }
+
+sdecl:
+    struct id '{' vdecl_list '}' { Struct (pack $2) $4 }
 
 vdecl_list:
     {- empty -}    { [] }
@@ -159,4 +167,9 @@ actuals_list:
     expr                    { [$1] }
   | actuals_list ',' expr { $3 : $1 }
 
-{ parseError _ = error "Unable to parse tokens" }
+{
+parseError _ = error "Unable to parse tokens"
+fst (a, _, _) = a
+snd (_, b, _) = b
+thd (_, _, c) = c
+}

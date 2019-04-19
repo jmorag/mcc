@@ -17,21 +17,25 @@ import           Data.Text                      ( Text
                                                 , singleton
                                                 )
 import           Data.List                      ( find )
+import           Debug.Trace
 
 type Vars = M.Map (Text, VarKind) Type
 type Funcs = M.Map Text Function
-
+type Structs = [Struct]
 data Env = Env { vars     :: Vars
                , funcs    :: Funcs
-               , thisFunc :: Function }
+               , structs  :: Structs
+               , thisFunc :: Function
+               }
 
 type Semant = ExceptT SemantError (State Env)
 
 checkBinds :: VarKind -> [Bind] -> Semant [Bind]
 checkBinds kind binds = do
-  currentFunc <- if kind == Global
-    then return Nothing
-    else Just <$> gets thisFunc
+  currentFunc <- case kind of
+    Global      -> pure Toplevel
+    StructField -> pure Toplevel -- we don't keep the current struct in semant
+    _           -> F <$> gets thisFunc
   forM binds $ \case
     Bind TyVoid name -> throwError $ IllegalBinding name Void kind currentFunc
 
@@ -45,15 +49,29 @@ checkBinds kind binds = do
       modify $ \env -> env { vars = M.insert (name, kind) ty vars }
       return $ Bind ty name
 
+checkFields :: Struct -> Semant Struct
+checkFields s@(Struct name fields) = do
+  fields' <- foldM
+    (\acc field@(Bind t name) -> case t of
+      TyVoid -> throwError $ IllegalBinding name Void StructField (S s)
+      _      -> if M.member name acc
+        then throwError (IllegalBinding name Duplicate StructField (S s))
+        else pure $ M.insert name field acc
+    )
+    M.empty
+    fields
+  return $ Struct name (M.elems fields') -- this doesn't preserve ordering
+
+
 builtIns :: Funcs
 builtIns = M.fromList $ map
   toFunc
-  [ ("print"   , [TyInt]  , TyVoid)
-  , ("printb"  , [TyBool] , TyVoid)
-  , ("printf"  , [TyFloat], TyVoid)
-  , ("printbig", [TyInt]  , TyVoid)
-  , ("malloc"  , [TyInt]  , Pointer TyVoid)
-  , ("free"    , [Pointer TyVoid] , TyVoid)
+  [ ("print"   , [TyInt]         , TyVoid)
+  , ("printb"  , [TyBool]        , TyVoid)
+  , ("printf"  , [TyFloat]       , TyVoid)
+  , ("printbig", [TyInt]         , TyVoid)
+  , ("malloc"  , [TyInt]         , Pointer TyVoid)
+  , ("free"    , [Pointer TyVoid], TyVoid)
   ]
  where
   toFunc (name, tys, retty) =
@@ -63,7 +81,11 @@ builtIns = M.fromList $ map
 
 checkExpr :: Expr -> Semant SExpr
 checkExpr expr
-  = let isNumeric t = t `elem` [TyInt, TyFloat]
+  = let isNumeric t = case t of
+          TyInt     -> True
+          TyFloat   -> True
+          Pointer _ -> True
+          _         -> False
     in
       case expr of
         Literal  i -> return (TyInt, SLiteral i)
@@ -137,17 +159,27 @@ checkExpr expr
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
 
-            Assign -> assertSym >> case snd lhs' of
-              SId _         -> return (t1, SBinop Assign lhs' rhs')
-              SUnop Deref _ -> return (t1, SBinop Assign lhs' rhs')
-              _             -> throwError $ AssignmentError lhs rhs
+            Assign -> case (fst lhs', fst rhs') of
+              (Pointer t, TyInt) ->
+                checkExpr (Binop Assign lhs (Cast (Pointer t) rhs))
+              _ -> assertSym >> case snd lhs' of
+                SId _           -> return (t1, SBinop Assign lhs' rhs')
+                SUnop   Deref _ -> return (t1, SBinop Assign lhs' rhs')
+                SAccess s     f -> return (t1, SAccess s f)
+                _               -> throwError $ AssignmentError lhs rhs
 
-            _relational -> do
-              assertSym
-              unless (isNumeric t1) $ throwError $ TypeError [TyInt, TyFloat]
-                                                             t1
-                                                             (Expr expr)
-              return (TyBool, SBinop op lhs' rhs')
+            relational -> case (fst lhs', fst rhs') of
+              (Pointer t, TyInt) ->
+                checkExpr (Binop relational lhs (Cast (Pointer t) rhs))
+              (TyInt, Pointer t) ->
+                checkExpr (Binop relational (Cast (Pointer t) lhs) rhs)
+              _ -> do
+                assertSym
+                unless (isNumeric t1) $ throwError $ TypeError
+                  [TyInt, TyFloat]
+                  t1
+                  (Expr expr)
+                return (TyBool, SBinop op lhs' rhs')
 
         Unop op e -> do
           e'@(ty, _) <- checkExpr e
@@ -198,8 +230,29 @@ checkExpr expr
           e'@(t', _) <- checkExpr e
           case (t, t') of
             (Pointer _, Pointer _) -> return (t, SCast t e')
+            (Pointer _, TyInt    ) -> return (t, SCast t e')
             _                      -> throwError $ CastError t t' (Expr expr)
 
+        Access e field -> do
+          fieldName <- case field of
+            Id f -> pure f
+            _    -> throwError (AccessError field e)
+
+          (t, e')           <- checkExpr e
+          (Struct _ fields) <- case t of
+            TyStruct name' -> do
+              ss <- gets structs
+              case find (\(Struct n _) -> n == name') ss of
+                Nothing ->
+                  throwError (TypeError [TyStruct "a_struct"] t (Expr expr))
+                Just s -> pure s
+            _ -> throwError (TypeError [TyStruct "a_struct"] t (Expr expr))
+
+          t' <- case find (\(Bind _ f) -> f == fieldName) fields of
+            Nothing           -> throwError (AccessError e field)
+            Just (Bind typ _) -> pure typ
+
+          return (t', SAccess (t, e') fieldName)
 
 checkStatement :: Statement -> Semant SStatement
 checkStatement stmt = case stmt of
@@ -275,16 +328,21 @@ checkFunction func = do
     _ -> error "Internal error - block didn't become a block?"
 
 checkProgram :: Program -> Either SemantError SProgram
-checkProgram (Program binds funcs) = evalState
-  (runExceptT (checkProgram' (binds, funcs)))
+checkProgram (Program structs binds funcs) = evalState
+  (runExceptT (checkProgram' (structs, binds, funcs)))
   baseEnv
  where
-  baseEnv = Env {vars = M.empty, funcs = builtIns, thisFunc = garbageFunc}
+  baseEnv =
+    Env {structs = [], vars = M.empty, funcs = builtIns, thisFunc = garbageFunc}
+
   garbageFunc =
     Function {typ = TyVoid, name = "", formals = [], locals = [], body = []}
-  checkProgram' (binds, funcs) = do
+
+  checkProgram' (structs, binds, funcs) = do
+    structs' <- mapM checkFields structs
+    modify $ \e -> e { structs = structs' }
     globals <- checkBinds Global binds
     funcs'  <- mapM checkFunction funcs
     case find (\f -> sname f == "main") funcs' of
       Nothing -> throwError NoMain
-      Just _  -> return (globals, funcs')
+      Just _  -> return (structs', globals, funcs')

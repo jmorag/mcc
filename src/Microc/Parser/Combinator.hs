@@ -12,9 +12,12 @@ import           Control.Monad.Combinators.Expr
 import           Control.Applicative            ( liftA2
                                                 , liftA3
                                                 )
+import           Data.Either
+
 opTable :: [[Operator Parser Expr]]
 opTable =
-  [ [unary Neg "-", unary Not "!", unary Deref "*", unary Addr "&"]
+  [ [InfixL $ Access <$ symbol "."]
+  , [unary Neg "-", unary Not "!", unary Deref "*", unary Addr "&"]
   , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add "+", infixL Sub "-"]
@@ -51,12 +54,16 @@ termP = try (Cast <$> parens typeP <*> exprP)
 exprP :: Parser Expr
 exprP = makeExprParser termP opTable
 
+structP :: Parser Struct
+structP = Struct <$> (rword "struct" *> identifier) <*> braces (many vdeclP) <* semi
+
 typeP :: Parser Type
 typeP = do
-  baseType <- TyInt   <$  rword "int"
-          <|> TyBool  <$  rword "bool"
-          <|> TyFloat <$  rword "float"
-          <|> TyVoid  <$  rword "void"
+  baseType <- TyInt    <$ rword "int"
+          <|> TyBool   <$ rword "bool"
+          <|> TyFloat  <$ rword "float"
+          <|> TyVoid   <$ rword "void"
+          <|> TyStruct <$> (rword "struct" *> identifier)
   foldr (const Pointer) baseType <$> many star
 
 vdeclP :: Parser Bind
@@ -65,7 +72,7 @@ vdeclP = Bind <$> typeP <*> identifier <* semi
 statementP :: Parser Statement
 statementP = Expr <$> exprP <*  semi
     <|> Return <$> (rword "return" *> exprMaybe <* semi)
-    <|> Block <$> braces (many statementP)
+    <|> Block  <$> braces (many statementP)
     <|> ifP
     <|> forP
     <|> whileP
@@ -88,16 +95,17 @@ whileP :: Parser Statement
 whileP = liftA2 While (rword "while" *> parens exprP) statementP
 
 fdeclP :: Parser Function
-fdeclP = Function
-     <$> typeP
-     <*> identifier
-     <*> formalsP
-     <*> (symbol "{" *> many vdeclP)
-     <*> (many statementP <* symbol "}")
+fdeclP = Function <$> typeP <*> identifier <*> formalsP
+    <*> (symbol "{" *> many vdeclP)
+    <*> (many statementP <* symbol "}")
 
 formalsP :: Parser [Bind]
 formalsP = parens $ formalP `sepBy` comma
   where formalP = liftA2 Bind typeP identifier
 
 programP :: Parser Program
-programP = between sc eof $ liftA2 Program (many $ try vdeclP) (many fdeclP)
+programP = between sc eof $ do
+  structsOrGlobals <- many $ (try $ Left <$> structP) <|> (Right <$> try vdeclP)
+  let structs = lefts structsOrGlobals
+      globals = rights structsOrGlobals
+  Program structs globals <$> many fdeclP

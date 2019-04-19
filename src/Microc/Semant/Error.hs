@@ -5,8 +5,9 @@ import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 
 type Name = Text
+data BindingLoc = F Function | S Struct | Toplevel deriving Show
 data SemantError =
-    IllegalBinding Name BindingKind VarKind (Maybe Function)
+    IllegalBinding Name BindingKind VarKind BindingLoc
   | UndefinedSymbol Name SymbolKind Expr
   | TypeError { expected :: [Type], got :: Type, errorLoc :: Statement }
   | CastError { to :: Type, from :: Type, castLoc :: Statement }
@@ -14,13 +15,14 @@ data SemantError =
   | Redeclaration Name
   | NoMain
   | AssignmentError { lhs :: Expr, rhs :: Expr }
+  | AccessError { struct :: Expr, field :: Expr }
   | DeadCode Statement -- ^ For statements in a block following a return
   deriving (Show)
 
 data BindingKind = Duplicate | Void deriving (Show)
 data SymbolKind = Var | Func deriving (Show)
 
-data VarKind = Global | Formal | Local deriving (Show, Eq, Ord)
+data VarKind = Global | Formal | Local | StructField deriving (Show, Eq, Ord)
 
 instance Pretty VarKind where
   pretty = unsafeViaShow
@@ -35,10 +37,13 @@ instance Pretty BindingKind where
 
 instance Pretty SemantError where
   pretty = \case
-    IllegalBinding nm bindKind varKind func ->
+    IllegalBinding nm bindKind varKind loc ->
       "Error: Illegal" <+> pretty bindKind <+> pretty varKind <+>
-      "binding," <+> pretty nm <+>
-      maybe mempty (\f -> "in function" <+> pretty (name f)) func
+      "binding," <+> pretty nm <+> case loc of
+      F f -> "in function" <+> pretty (name f)
+      S (Struct sname _) -> "in struct" <+> pretty sname
+      Toplevel -> mempty
+
 
     UndefinedSymbol nm symKind expr ->
       "Undefined" <+> pretty symKind <+> pretty nm <+>
@@ -62,6 +67,9 @@ instance Pretty SemantError where
 
     AssignmentError lhs rhs ->
       "Cannot assign" <+> pretty rhs <+> "to" <+> pretty lhs
+
+    AccessError struct field ->
+      "Cannot access" <+> pretty struct <+> "with" <+> pretty field
 
     DeadCode stmt ->
       "Error: nothing may follow a return. Error occured in statement:" <>

@@ -45,6 +45,7 @@ tokens :-
  "float"  { \_ -> LType TyFloat }
  "bool"   { \_ -> LType TyBool  }
  "void"   { \_ -> LType TyVoid  }
+ "struct" { \_ -> LStruct }
  "true"   { \_ -> LBool True    }
  "false"  { \_ -> LBool False   }
  $digit+  { \s -> LInt (read s) }
@@ -56,6 +57,7 @@ data Lexeme = LInt Int
             | LFloat Double
             | LId String
             | LType Type
+            | LStruct
             | LBool Bool
             | LRet
             | LAssign

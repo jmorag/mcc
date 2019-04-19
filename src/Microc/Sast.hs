@@ -13,6 +13,7 @@ data SExpr' =
   | SUnop Uop SExpr
   | SCall Text [SExpr]
   | SCast Type SExpr
+  | SAccess SExpr Text
   | SNoexpr
   deriving (Show, Eq)
 
@@ -34,4 +35,4 @@ data SFunction = SFunction
   }
   deriving (Show, Eq)
 
-type SProgram = ([Bind], [SFunction])
+type SProgram = ([Struct], [Bind], [SFunction])

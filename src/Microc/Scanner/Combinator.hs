@@ -54,6 +54,8 @@ rws =
   , "float"
   , "void"
   , "return"
+  , "struct"
+  , "NULL"
   ]
 
 identifier :: Parser Text
@@ -65,7 +67,7 @@ identifier = (lexeme . try) (p >>= check)
     else return x
 
 int :: Parser Int
-int = lexeme L.decimal
+int = lexeme L.decimal <|> (0 <$ rword "NULL")
 
 float :: Parser Double
 float = lexeme L.float

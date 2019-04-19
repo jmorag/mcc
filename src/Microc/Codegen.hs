@@ -343,7 +343,7 @@ codegenGlobal (Bind t n) = do
   modify $ M.insert n var
 
 codegenProgram :: SProgram -> AST.Module
-codegenProgram (globals, funcs) = modl
+codegenProgram (_structs, globals, funcs) = modl
   -- Default to unknown linux target.
   -- Clang will override this on other architectures so
   -- it's harmless to include here.

@@ -26,11 +26,15 @@ data Uop = Neg
          | Addr
          deriving (Show, Eq)
 
+data Struct = Struct Text [Bind]
+  deriving (Show, Eq)
+
 data Type = Pointer Type
           | TyInt
           | TyBool
           | TyFloat
           | TyVoid
+          | TyStruct Text
           deriving (Show, Eq)
 data Bind = Bind Type Text deriving (Show, Eq)
 
@@ -42,6 +46,7 @@ data Expr = Literal Int
           | Unop Uop Expr
           | Call Text [Expr]
           | Cast Type Expr
+          | Access Expr Expr
           | Noexpr
           deriving (Show, Eq)
 
@@ -62,7 +67,7 @@ data Function = Function
   }
   deriving (Show, Eq)
 
-data Program = Program [Bind] [Function] deriving (Eq, Show)
+data Program = Program [Struct] [Bind] [Function] deriving (Eq, Show)
 
 --------------------------------------------
 -- Pretty instances
@@ -93,6 +98,11 @@ instance Pretty Uop where
     Deref -> "*"
     Addr -> "&"
 
+instance Pretty Struct where
+  pretty (Struct name binds) = "struct" <+>
+      pretty name <+> lbrace <> hardline <> indent 4 (vsep (map (\b -> pretty b <> ";") binds))
+      <> hardline <> rbrace <> ";"
+
 instance Pretty Type where
   pretty = \case
     TyInt -> "int"
@@ -100,6 +110,7 @@ instance Pretty Type where
     TyFloat -> "float"
     TyVoid -> "void"
     Pointer t -> pretty t <+> "*"
+    TyStruct n -> "struct" <+> pretty n
 
 instance Pretty Bind where
   pretty (Bind ty nm) = pretty ty <+> pretty nm
@@ -114,6 +125,7 @@ instance Pretty Expr where
     Unop op e -> pretty op <> parens (pretty e)
     Call f es -> pretty f <> tupled (map pretty es)
     Cast t e -> parens (pretty t) <> parens (pretty e)
+    Access struct field -> pretty struct <> "." <> pretty field
     Noexpr -> mempty
 
 instance Pretty Statement where
@@ -142,7 +154,8 @@ instance Pretty Function where
     <> hardline <> rbrace <> hardline
 
 instance Pretty Program where
-  pretty (Program binds funcs) = hardsep (map decl binds ++ map pretty funcs)
+  pretty (Program structs binds funcs) = hardsep
+    (map pretty structs ++ map decl binds ++ map pretty funcs)
 
 decl :: Pretty a => a -> Doc ann
 decl bind = pretty bind <> semi
