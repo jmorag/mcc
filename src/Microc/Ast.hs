@@ -26,7 +26,7 @@ data Uop = Neg
          | Addr
          deriving (Show, Eq)
 
-data Struct = Struct Text [Bind]
+data Struct = Struct { structName :: Text, structFields :: [Bind] }
   deriving (Show, Eq)
 
 data Type = Pointer Type
@@ -36,7 +36,7 @@ data Type = Pointer Type
           | TyVoid
           | TyStruct Text
           deriving (Show, Eq)
-data Bind = Bind Type Text deriving (Show, Eq)
+data Bind = Bind { bindType :: Type, bindName :: Text } deriving (Show, Eq)
 
 data Expr = Literal Int
           | Fliteral Double

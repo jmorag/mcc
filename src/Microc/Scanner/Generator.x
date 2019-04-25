@@ -13,41 +13,42 @@ $newline = [\r\n]
 tokens :-
  $white+  ;
  "/*" ( $newline | [^\*] | \*+ ($newline | [^\/]) )* "*/" ;
- \(       { \_ -> LPAREN   }
- \)       { \_ -> RPAREN   }
- \{       { \_ -> LBRACE   }
- \}       { \_ -> RBRACE   }
- \;       { \_ -> LSemi    }
- \,       { \_ -> LComma   }
- \+       { \_ -> LAdd     }
- \-       { \_ -> LSub     }
- \*       { \_ -> LMul     }
- \/       { \_ -> LDiv     }
- \=       { \_ -> LAssign  }
- \=\=     { \_ -> LEqual   }
- \!\=     { \_ -> LNeq     }
- \<       { \_ -> LLess    }
- \<\=     { \_ -> LLeq     }
- \>       { \_ -> LGreater }
- \>\=     { \_ -> LGeq     }
- \&\&     { \_ -> LAnd     }
- \|\|     { \_ -> LOr      }
- \!       { \_ -> LNot     }
- \&       { \_ -> LBitAnd  }
- \|       { \_ -> LBitOr   }
- \*\*     { \_ -> LPow     }
- "if"     { \_ -> LIf      }
- "else"   { \_ -> LElse    }
- "for"    { \_ -> LFor     }
- "while"  { \_ -> LWhile   }
- "return" { \_ -> LRet     }
- "int"    { \_ -> LType TyInt   }
- "float"  { \_ -> LType TyFloat }
- "bool"   { \_ -> LType TyBool  }
- "void"   { \_ -> LType TyVoid  }
- "struct" { \_ -> LStruct }
- "true"   { \_ -> LBool True    }
- "false"  { \_ -> LBool False   }
+ \(       { const LPAREN   }
+ \)       { const RPAREN   }
+ \{       { const LBRACE   }
+ \}       { const RBRACE   }
+ \;       { const LSemi    }
+ \,       { const LComma   }
+ \+       { const LAdd     }
+ \-       { const LSub     }
+ \*       { const LMul     }
+ \/       { const LDiv     }
+ \=       { const LAssign  }
+ \=\=     { const LEqual   }
+ \!\=     { const LNeq     }
+ \<       { const LLess    }
+ \<\=     { const LLeq     }
+ \>       { const LGreater }
+ \>\=     { const LGeq     }
+ \&\&     { const LAnd     }
+ \|\|     { const LOr      }
+ \!       { const LNot     }
+ \&       { const LBitAnd  }
+ \|       { const LBitOr   }
+ \*\*     { const LPow     }
+ \.       { const LDot     }
+ "if"     { const LIf      }
+ "else"   { const LElse    }
+ "for"    { const LFor     }
+ "while"  { const LWhile   }
+ "return" { const LRet     }
+ "int"    { const $ LType TyInt   }
+ "float"  { const $ LType TyFloat }
+ "bool"   { const $ LType TyBool  }
+ "void"   { const $ LType TyVoid  }
+ "struct" { const LStruct }
+ "true"   { const $ LBool True    }
+ "false"  { const $ LBool False   }
  $digit+  { \s -> LInt (read s) }
  $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }
@@ -89,4 +90,5 @@ data Lexeme = LInt Int
             | LBitAnd
             | LBitOr
             | LPow
+            | LDot
             }
