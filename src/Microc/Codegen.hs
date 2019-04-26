@@ -1,4 +1,6 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Microc.Codegen
@@ -31,15 +33,17 @@ import           Microc.Ast                     ( Type(..)
                                                 , Op(..)
                                                 , Uop(..)
                                                 , Bind(..)
+                                                , Struct(..)
                                                 )
 
 import           Data.String.Conversions
 import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
 import           Data.Word                      ( Word32 )
-
+import           Data.List                      ( find )
+import           Debug.Trace
 -- When using the IRBuilder, both functions and variables have the type Operand
-type Env = M.Map Text AST.Operand
+data Env = Env { operands :: M.Map Text AST.Operand, structs :: [ Struct ] }
 
 -- LLVM and Codegen type synonyms allow us to emit module definitions and basic
 -- block instructions at the top level without being forced to pass explicit
@@ -47,45 +51,77 @@ type Env = M.Map Text AST.Operand
 type LLVM = L.ModuleBuilderT (State Env)
 type Codegen = L.IRBuilderT LLVM
 
+registerOperand :: MonadState Env m => Text -> AST.Operand -> m ()
+registerOperand name op =
+  modify $ \env -> env { operands = M.insert name op (operands env) }
+
+getFields :: MonadState Env m => Text -> m [Bind]
+getFields name = do
+  ss <- gets structs
+  case find (\s -> structName s == name) ss of
+    Nothing               -> error "Internal error - struct not found"
+    Just (Struct _ binds) -> pure binds
+
 instance ConvertibleStrings Text ShortByteString where
   convertString = fromString . T.unpack
 
-ltypeOfTyp :: Type -> AST.Type
-ltypeOfTyp TyVoid      = AST.void
-ltypeOfTyp TyInt       = AST.i32
-ltypeOfTyp TyFloat     = AST.double
-ltypeOfTyp TyBool      = AST.i1
--- void * is invalid LLVM
-ltypeOfTyp (Pointer TyVoid) = AST.ptr AST.i8
-ltypeOfTyp (Pointer t) = AST.ptr (ltypeOfTyp t)
+ltypeOfTyp :: MonadState Env m => Type -> m AST.Type
+ltypeOfTyp = \case
+  TyVoid         -> pure AST.void
+  TyInt          -> pure AST.i32
+  TyFloat        -> pure AST.double
+  TyBool         -> pure AST.i1
+  -- (void *) is invalid LLVM
+  Pointer TyVoid -> pure $ AST.ptr AST.i8
+  -- special case to handle recursively defined structures
+  Pointer (TyStruct n) ->
+    pure $ AST.ptr (AST.NamedTypeReference (mkName $ cs n))
+  Pointer  t -> fmap AST.ptr (ltypeOfTyp t)
+  TyStruct n -> do
+    fields <- getFields n
+    typs   <- mapM (ltypeOfTyp . bindType) fields
+    -- Packed structs aren't great for performance but very easy to code for now
+    pure $ AST.StructureType {AST.isPacked = True, AST.elementTypes = typs}
 
 charStar :: AST.Type
 charStar = AST.ptr AST.i8
 
-alignment :: Type -> Word32
+alignment :: MonadState Env m => Type -> m Word32
 alignment = \case
-  TyBool    -> 1
-  TyInt     -> 4
-  TyFloat   -> 8
-  TyVoid    -> 0
-  Pointer _ -> 8
+  TyBool     -> pure 1
+  TyInt      -> pure 4
+  TyFloat    -> pure 8
+  TyVoid     -> pure 0
+  Pointer  _ -> pure 8
+  TyStruct n -> fmap sum $ mapM (alignment . bindType) =<< getFields n
 
 codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
 codegenSexpr (t      , SId name   ) = do
-  addr <- gets (M.! name)
-  L.load addr (alignment t)
+  addr <- gets ((M.! name) . operands)
+  L.load addr =<< alignment t
 
 -- Handle assignment separately from other binops
 codegenSexpr (t, SBinop Assign lhs rhs) = do
   rhs' <- codegenSexpr rhs
-  addr <- case snd lhs of
-    SId name      -> gets (M.! name)
-    SUnop Deref l -> codegenSexpr l
-    _             -> error "Internal error - semant failed"
-  L.store addr (alignment t) rhs'
+  addr <- case lhs of
+    (_, SId name                            ) -> gets ((M.! name) . operands)
+    (_, SUnop Deref l                       ) -> codegenSexpr l
+    (_, SAccess e@(TyStruct struct, _) field) -> do
+      e'     <- codegenSexpr e
+      fields <- getFields struct
+      offset <- foldM
+        (\acc (Bind t' n) ->
+          if n == field then pure acc else fmap (+ acc) (alignment t')
+        )
+        0
+        fields
+      L.gep e' [AST.ConstantOperand $ C.Int 8 (fromIntegral offset)]
+    _ -> error "Internal error - semant failed"
+  align <- alignment t
+  L.store addr align rhs'
   return rhs'
 
 codegenSexpr (t, SBinop op lhs rhs) = do
@@ -102,13 +138,13 @@ codegenSexpr (t, SBinop op lhs rhs) = do
         _                      -> error "Internal error - semant failed"
       _ -> error "Internal error - semant failed"
     Sub -> case t of
-      TyInt     -> case (fst lhs, fst rhs) of
-        (TyInt, TyInt) -> L.sub lhs' rhs'
+      TyInt -> case (fst lhs, fst rhs) of
+        (TyInt      , TyInt    ) -> L.sub lhs' rhs'
         (Pointer typ, Pointer _) -> do
           lhs'' <- L.ptrtoint lhs' AST.i64
           rhs'' <- L.ptrtoint rhs' AST.i64
           diff  <- L.sub lhs'' rhs''
-          width <- L.int64 (fromIntegral $ alignment typ)
+          width <- L.int64 . fromIntegral =<< alignment typ
           L.sdiv diff width
         _ -> error "Internal error - semant failed"
       TyFloat   -> L.fsub lhs' rhs'
@@ -182,16 +218,16 @@ codegenSexpr (t, SUnop op e) = do
       TyBool -> L.bit 1 >>= L.xor e'
       _      -> error "Internal error - semant failed"
     Addr -> case snd e of
-      SId name      -> gets (M.! name)
+      SId name      -> gets ((M.! name) . operands)
       SUnop Deref l -> codegenSexpr l
       _             -> error "Internal error - semant failed"
-    Deref -> L.load e' (alignment t)
+    Deref -> L.load e' =<< alignment t
 
 
 codegenSexpr (_, SCall fun es) = do
-  intFormatStr   <- gets (M.! "_intFmt")
-  floatFormatStr <- gets (M.! "_floatFmt")
-  printf         <- gets (M.! "printf")
+  intFormatStr   <- gets ((M.! "_intFmt") . operands)
+  floatFormatStr <- gets ((M.! "_floatFmt") . operands)
+  printf         <- gets ((M.! "printf") . operands)
   case fun of
     "print" -> do
       e' <- codegenSexpr (head es)
@@ -206,14 +242,28 @@ codegenSexpr (_, SCall fun es) = do
       es' <- forM es $ \e -> do
         e' <- codegenSexpr e
         return (e', [])
-      f <- gets (M.! fun)
+      f <- gets ((M.! fun) . operands)
       L.call f es'
 
 codegenSexpr (_, SCast t e) = do
   e' <- codegenSexpr e
-  L.bitcast e' (ltypeOfTyp t)
+  L.bitcast e' =<< ltypeOfTyp t
 
-codegenSexpr (_, SNoexpr) = L.int32 0
+codegenSexpr (_, SNoexpr                             ) = L.int32 0
+
+codegenSexpr (_, SAccess e@(TyStruct struct, _) field) = do
+  traceShowM e
+  e'     <- codegenSexpr e
+  fields <- getFields struct
+  offset <- foldM
+    (\acc (Bind t n) ->
+      if n == field then pure acc else fmap (+ acc) (alignment t)
+    )
+    0
+    fields
+  addr <- L.gep e' [AST.ConstantOperand $ C.Int 8 (fromIntegral offset)]
+  L.load addr 0
+
 
 -- Final catchall
 codegenSexpr sx =
@@ -280,77 +330,82 @@ codegenFunc f = mdo
   -- We need to forward reference the generated function and insert it into the
   -- environment _before_ generating its body in order to handle the
   -- possibility of the function calling itself recursively
-  modify $ M.insert (sname f) fun
+  registerOperand (sname f) fun
   -- We wrap generating the function inside of the `locally` combinator in
   -- order to prevent local variables from escaping the scope of the function
-  fun <-
-    locally
-      $ let name = mkName (cs $ sname f)
-            mkParam (Bind t n) = (ltypeOfTyp t, L.ParameterName (cs n))
-            args  = map mkParam (sformals f)
-            retty = ltypeOfTyp (styp f)
+  fun <- locally $ do
+    retty <- ltypeOfTyp (styp f)
+    let name = mkName (cs $ sname f)
+        mkParam (Bind t n) =
+          ltypeOfTyp t >>= \t' -> return (t', L.ParameterName (cs n))
 
-            -- Generate the body of the function:
-            body ops = do
-              let pairs = zip ops (sformals f)
-              _entry <- L.block `L.named` "entry"
-              -- Add the formal parameters to the map, allocate them on the stack,
-              -- and then emit the necessary store instructions
-              forM_ pairs $ \(op, Bind t n) -> do
-                let ltype = typeOf op
-                addr <- L.alloca ltype Nothing (alignment t)
-                L.store addr (alignment t) op
-                modify $ M.insert n addr
-              -- Same for the locals, except we do not emit the store instruction for
-              -- them
-              forM_ (slocals f) $ \(Bind t n) -> do
-                let ltype = ltypeOfTyp t
-                addr <- L.alloca ltype Nothing (alignment t)
-                modify $ M.insert n addr
-              -- Evaluate the actual body of the function after making the necessary
-              -- allocations
-              codegenStatement (sbody f)
-        in  L.function name args retty body
+        -- Generate the body of the function:
+        body ops = do
+          let pairs = zip ops (sformals f)
+          _entry <- L.block `L.named` "entry"
+          -- Add the formal parameters to the map, allocate them on the stack,
+          -- and then emit the necessary store instructions
+          forM_ pairs $ \(op, Bind t n) -> do
+            let ltype = typeOf op
+            align <- alignment t
+            addr  <- L.alloca ltype Nothing align
+            L.store addr align op
+            registerOperand n addr
+          -- Same for the locals, except we do not emit the store instruction for
+          -- them
+          forM_ (slocals f) $ \(Bind t n) -> do
+            ltype <- ltypeOfTyp t
+            align <- alignment t
+            addr  <- L.alloca ltype Nothing align
+            registerOperand n addr
+          -- Evaluate the actual body of the function after making the necessary
+          -- allocations
+          codegenStatement (sbody f)
+    args <- mapM mkParam (sformals f)
+    L.function name args retty body
   return ()
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = do
   printbig <- L.extern (mkName "printbig") [AST.i32] AST.void
   printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
-  modify $ M.insert "printf" printf
-  modify $ M.insert "printbig" printbig
+  registerOperand "printf"   printf
+  registerOperand "printbig" printbig
   intFmt   <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
   floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
-  modify $ M.insert "_intFmt" intFmt
-  modify $ M.insert "_floatFmt" floatFmt
+  registerOperand "_intFmt"   intFmt
+  registerOperand "_floatFmt" floatFmt
 
   llvmPow <- L.extern (mkName "llvm.pow.f64")
                       [AST.double, AST.double]
                       AST.double
-  modify $ M.insert "llvm.pow" llvmPow
+  registerOperand "llvm.pow" llvmPow
 
   malloc <- L.extern (mkName "malloc") [AST.i32] (AST.ptr AST.i8)
-  modify $ M.insert "malloc" malloc
-  free  <- L.extern (mkName "free") [AST.ptr AST.i8] AST.void
-  modify $ M.insert "free" free
+  registerOperand "malloc" malloc
+  free <- L.extern (mkName "free") [AST.ptr AST.i8] AST.void
+  registerOperand "free" free
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do
   let name    = mkName $ cs n
-      typ     = ltypeOfTyp t
       initVal = C.Int 0 0
+  typ <- ltypeOfTyp t
   var <- L.global name typ initVal
-  modify $ M.insert n var
+  registerOperand n var
 
 codegenProgram :: SProgram -> AST.Module
-codegenProgram (_structs, globals, funcs) = modl
+codegenProgram (structs, globals, funcs) = modl
   -- Default to unknown linux target.
   -- Clang will override this on other architectures so
   -- it's harmless to include here.
   { AST.moduleTargetTriple = Just "x86_64-unknown-linux-gnu"
   }
  where
-  modl = flip evalState M.empty $ L.buildModuleT "microc" $ do
-    emitBuiltIns
-    mapM_ codegenGlobal globals
-    mapM_ codegenFunc   funcs
+  modl =
+    flip evalState (Env {operands = M.empty, structs })
+      $ L.buildModuleT "microc"
+      $ do
+          emitBuiltIns
+          mapM_ codegenGlobal globals
+          mapM_ codegenFunc   funcs
