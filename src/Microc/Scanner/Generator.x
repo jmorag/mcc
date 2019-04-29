@@ -13,6 +13,7 @@ $newline = [\r\n]
 tokens :-
  $white+  ;
  "/*" ( $newline | [^\*] | \*+ ($newline | [^\/]) )* "*/" ;
+ "//" [^$newline]* $newline ;
  \(       { const LPAREN   }
  \)       { const RPAREN   }
  \{       { const LBRACE   }
@@ -49,6 +50,7 @@ tokens :-
  "struct" { const LStruct }
  "true"   { const $ LBool True    }
  "false"  { const $ LBool False   }
+ "NULL"   { const (LInt 0)}
  $digit+  { \s -> LInt (read s) }
  $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }

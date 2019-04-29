@@ -93,7 +93,7 @@ formal_list:
 
 typ:
     primtype stars { foldr (const Pointer) $1 $2 }
-  | struct id { TyStruct (pack $2) }
+  | struct id stars { foldr (const Pointer) (TyStruct (pack $2)) $3 }
 
 stars:
     { [] }
@@ -102,7 +102,7 @@ stars:
   | stars '**' { $2 : $2 : $1 }
 
 sdecl:
-    struct id '{' vdecl_list '}' { Struct (pack $2) $4 }
+    struct id '{' vdecl_list '}' ';' { Struct (pack $2) (reverse $4) }
 
 vdecl_list:
     {- empty -}    { [] }
@@ -122,8 +122,7 @@ stmt:
   | '{' stmt_list '}' { Block (reverse $2) }
   | if '(' expr ')' stmt %prec NOELSE { If $3 $5 (Block []) }
   | if '(' expr ')' stmt else stmt    { If $3 $5 $7 }
-  | for '(' expr_opt ';' expr ';' expr_opt ')' stmt
-     { For $3 $5 $7 $9 }
+  | for '(' expr_opt ';' expr ';' expr_opt ')' stmt { For $3 $5 $7 $9 }
   | while '(' expr ')' stmt { While $3 $5 }
 
 expr_opt:

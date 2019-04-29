@@ -12,21 +12,21 @@ struct List *cons(int x, struct List *tail) {
   return head;
 }
 
-/* struct List *reverse(struct List *list) { */
-/*   struct List *this; */
-/*   struct List *next; */
-/*   struct List *new_next; */
-/*   this = list; */
-/*   next = (*this).next; */
-/*   (*this).next = NULL; */
-/*   while (next != NULL) { */
-/*     new_next = (*next).next; */
-/*     (*next).next = this; */
-/*     this = next; */
-/*     next = new_next; */
-/*   } */
-/*   return this; */
-/* } */
+struct List *reverse(struct List *list) {
+  struct List *this;
+  struct List *next;
+  struct List *new_next;
+  this = list;
+  next = (*this).next;
+  (*this).next = NULL;
+  while (next != NULL) {
+    new_next = (*next).next;
+    (*next).next = this;
+    this = next;
+    next = new_next;
+  }
+  return this;
+}
 
 int main() {
   int i;
@@ -40,7 +40,7 @@ int main() {
     print((*l2).val);
     l2 = (*l2).next;
   }
-  /* l2 = reverse(l); */
+  l2 = reverse(l);
   while (l2 != NULL) {
     print((*l2).val);
     l2 = (*l2).next;
