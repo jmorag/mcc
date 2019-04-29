@@ -45,7 +45,6 @@ import           Data.Word                      ( Word32 )
 import           Data.List                      ( find
                                                 , findIndex
                                                 )
-import           Debug.Trace
 -- When using the IRBuilder, both functions and variables have the type Operand
 data Env = Env { operands :: M.Map Text AST.Operand, structs :: [ Struct ] }
 
@@ -90,50 +89,40 @@ ltypeOfTyp = \case
 charStar :: AST.Type
 charStar = AST.ptr AST.i8
 
-alignment :: MonadState Env m => Type -> m Word32
-alignment = \case
+sizeof :: MonadState Env m => Type -> m Word32
+sizeof = \case
   TyBool     -> pure 1
   TyInt      -> pure 4
   TyFloat    -> pure 8
   TyVoid     -> pure 0
   Pointer  _ -> pure 8
-  TyStruct n -> fmap sum $ mapM (alignment . bindType) =<< getFields n
+  TyStruct n -> fmap sum $ mapM (sizeof . bindType) =<< getFields n
 
 codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
-codegenSexpr (t      , SId name   ) = do
+codegenSexpr (_      , SId name   ) = do
   addr <- gets ((M.! name) . operands)
-  L.load addr 0 -- =<< alignment t
+  L.load addr 0
 
 -- Handle assignment separately from other binops
--- codegenSexpr (t, SBinop Assign (_, ) rhs) =
---   do
---     fields <- getFields struct
---     e' <- codegenSexpr e
---     rhs' <- codegenSexpr rhs
---     let offset = fromMaybe (error "Internal error - unknown struct field")
---           $ findIndex (\b -> bindName b == field) fields
---     L.insertValue e' rhs' [fromIntegral offset]
-
-codegenSexpr (t, SBinop Assign lhs rhs) = do
+codegenSexpr (_, SBinop Assign lhs rhs) = do
   rhs' <- codegenSexpr rhs
   addr <- case snd lhs of
-    SId name      -> gets ((M.! name) . operands)
-    SUnop Deref l -> codegenSexpr l
+    SId name                             -> gets ((M.! name) . operands)
+    SUnop   Deref                  l     -> codegenSexpr l
     SAccess e@(TyStruct struct, _) field -> do
       fields <- getFields struct
-      let offset = fromMaybe (error "Internal error - unknown struct field")
-            $ findIndex (\b -> bindName b == field) fields
-      e' <- codegenSexpr (Pointer (TyStruct struct), SUnop Addr e)
+      let offset =
+            fromMaybe (error "Internal error - unknown struct field")
+              $ findIndex (\b -> bindName b == field) fields
+      e'      <- codegenSexpr (Pointer (TyStruct struct), SUnop Addr e)
       offset' <- L.int32 (fromIntegral offset)
-      zero <- L.int32 0
+      zero    <- L.int32 0
       L.gep e' [zero, offset']
 
-    _             -> error "Internal error - semant failed"
-  align <- alignment t
-  -- L.store addr align rhs'
+    _ -> error "Internal error - semant failed"
   L.store addr 0 rhs'
   return rhs'
 
@@ -157,7 +146,7 @@ codegenSexpr (t, SBinop op lhs rhs) = do
           lhs'' <- L.ptrtoint lhs' AST.i64
           rhs'' <- L.ptrtoint rhs' AST.i64
           diff  <- L.sub lhs'' rhs''
-          width <- L.int64 . fromIntegral =<< alignment typ
+          width <- L.int64 . fromIntegral =<< sizeof typ
           L.sdiv diff width
         _ -> error "Internal error - semant failed"
       TyFloat   -> L.fsub lhs' rhs'
@@ -236,7 +225,7 @@ codegenSexpr (t, SUnop op e) = do
       SId name      -> gets ((M.! name) . operands)
       SUnop Deref l -> codegenSexpr l
       _             -> error "Internal error - semant failed"
-    Deref -> L.load e' 0 -- =<< alignment t
+    Deref -> L.load e' 0
 
 
 codegenSexpr (_, SCall fun es) = do
@@ -260,27 +249,27 @@ codegenSexpr (_, SCall fun es) = do
       f <- gets ((M.! fun) . operands)
       L.call f es'
 
-codegenSexpr (_, SCast t e) = do
-  e' <- codegenSexpr e
-  L.bitcast e' =<< ltypeOfTyp t
+codegenSexpr (_, SCast t (t', e)) = do
+  e' <- codegenSexpr (t', e)
+  case (t, t') of
+    (Pointer _, Pointer _) -> L.bitcast e' =<< ltypeOfTyp t
+    (Pointer _, TyInt    ) -> do
+      bigint <- L.zext e' AST.i64
+      L.inttoptr bigint =<< ltypeOfTyp t
+    _ -> error "Semant failed - invalid cast"
 
 codegenSexpr (_, SNoexpr                             ) = L.int32 0
 
 codegenSexpr (_, SAccess e@(TyStruct struct, _) field) = do
-  e'     <- codegenSexpr e
+  e'     <- codegenSexpr (Pointer (TyStruct struct), SUnop Addr e)
   fields <- getFields struct
   let offset =
         fromMaybe (error "Internal error - unknown struct field")
           $ findIndex (\b -> bindName b == field) fields
-  case typeOf e' of
-    AST.NamedTypeReference nm -> do
-      typedefs <- L.liftModuleState $ gets L.builderTypeDefs
-      let t' = fromMaybe (error ("unknown typedef" ++ show nm)) $
-            M.lookup nm typedefs
-      case e' of
-        AST.LocalReference _ n -> L.extractValue (AST.LocalReference t' n) [fromIntegral offset]
-
-    _ -> L.extractValue e' [fromIntegral offset]
+  offset' <- L.int32 (fromIntegral offset)
+  zero    <- L.int32 0
+  addr    <- L.gep e' [zero, offset']
+  L.load addr 0
 
 -- Final catchall
 codegenSexpr sx =
@@ -362,20 +351,15 @@ codegenFunc f = mdo
           _entry <- L.block `L.named` "entry"
           -- Add the formal parameters to the map, allocate them on the stack,
           -- and then emit the necessary store instructions
-          forM_ pairs $ \(op, Bind t n) -> do
+          forM_ pairs $ \(op, Bind _ n) -> do
             let ltype = typeOf op
-            align <- alignment t
-            -- addr  <- L.alloca ltype Nothing align
-            addr  <- L.alloca ltype Nothing 0
-            -- L.store addr align op
+            addr <- L.alloca ltype Nothing 0
             L.store addr 0 op
             registerOperand n addr
           -- Same for the locals, except we do not emit the store instruction for
           -- them
           forM_ (slocals f) $ \(Bind t n) -> do
             ltype <- ltypeOfTyp t
-            align <- alignment t
-            -- addr  <- L.alloca ltype Nothing align
             addr  <- L.alloca ltype Nothing 0
             registerOperand n addr
           -- Evaluate the actual body of the function after making the necessary
