@@ -17,12 +17,10 @@ data Op = Add
         | Or
         | BitAnd
         | BitOr
-        | Assign
         deriving (Show, Eq)
 
 data Uop = Neg
          | Not
-         | Deref
          | Addr
          deriving (Show, Eq)
 
@@ -47,6 +45,8 @@ data Expr = Literal Int
           | Call Text [Expr]
           | Cast Type Expr
           | Access Expr Expr
+          | Deref Expr
+          | Assign Expr Expr
           | Noexpr
           deriving (Show, Eq)
 
@@ -89,18 +89,16 @@ instance Pretty Op where
     Or -> "||"
     BitAnd -> "&"
     BitOr -> "|"
-    Assign -> "="
 
 instance Pretty Uop where
   pretty = \case
     Neg -> "-"
     Not -> "!"
-    Deref -> "*"
     Addr -> "&"
 
 instance Pretty Struct where
-  pretty (Struct name binds) = "struct" <+>
-      pretty name <+> lbrace <> hardline <> indent 4 (vsep (map (\b -> pretty b <> ";") binds))
+  pretty (Struct nm binds) = "struct" <+>
+      pretty nm <+> lbrace <> hardline <> indent 4 (vsep (map (\b -> pretty b <> ";") binds))
       <> hardline <> rbrace <> ";"
 
 instance Pretty Type where
@@ -126,6 +124,8 @@ instance Pretty Expr where
     Call f es -> pretty f <> tupled (map pretty es)
     Cast t e -> parens (pretty t) <> parens (pretty e)
     Access struct field -> pretty struct <> "." <> pretty field
+    Assign lhs rhs -> pretty lhs <> "=" <> pretty rhs
+    Deref e -> "*" <> parens (pretty e)
     Noexpr -> mempty
 
 instance Pretty Statement where

@@ -17,7 +17,7 @@ import           Data.Either
 opTable :: [[Operator Parser Expr]]
 opTable =
   [ [InfixL $ Access <$ symbol "."]
-  , [unary Neg "-", unary Not "!", unary Deref "*", unary Addr "&"]
+  , [unary (Unop Neg) "-", unary (Unop Not) "!", unary Deref "*", unary (Unop Addr) "&"]
   , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add "+", infixL Sub "-"]
@@ -27,13 +27,13 @@ opTable =
   , [infixL' BitOr "|"]
   , [infixL' And "&&"]
   , [infixL' Or "||"]
-  , [infixR Assign "="]
+  , [InfixR $ Assign <$ symbol "="]
   ]
  where
   -- Megaparsec doesn't support multiple prefix operators by default,
   -- but we need this in order to parse things like double negatives,
   -- nots, and dereferences
-  unary op sym = Prefix $ foldr1 (.) <$> some (Unop op <$ symbol sym)
+  unary op sym = Prefix $ foldr1 (.) <$> some (op <$ symbol sym)
   infixL op sym = InfixL $ Binop op <$ symbol sym
   -- Primed infixL' is useful for operators which are prefixes of other operators
   infixL' op sym = InfixL $ Binop op <$ operator sym
@@ -105,7 +105,7 @@ formalsP = parens $ formalP `sepBy` comma
 
 programP :: Parser Program
 programP = between sc eof $ do
-  structsOrGlobals <- many $ (try $ Left <$> structP) <|> (Right <$> try vdeclP)
+  structsOrGlobals <- many $ try (Left <$> structP) <|> (Right <$> try vdeclP)
   let structs = lefts structsOrGlobals
       globals = rights structsOrGlobals
   Program structs globals <$> many fdeclP

@@ -8,13 +8,18 @@ data SExpr' =
     SLiteral Int
   | SFliteral Double
   | SBoolLit Bool
-  | SId Text
   | SBinop Op SExpr SExpr
   | SUnop Uop SExpr
   | SCall Text [SExpr]
   | SCast Type SExpr
-  | SAccess SExpr Text
+  | LVal LValue
+  | SAssign LValue SExpr
   | SNoexpr
+  deriving (Show, Eq)
+
+-- | LValues are the class of assignable expressions that can appear
+-- on the Left side on the '=' operator
+data LValue = SDeref SExpr | SAccess SExpr Int | SId Text
   deriving (Show, Eq)
 
 data SStatement =

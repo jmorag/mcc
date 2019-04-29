@@ -150,12 +150,12 @@ expr:
   | expr '||' expr         { Binop  Or   $1 $3 }
   | expr '**'  expr        { Binop  Power $1 $3 }
   | '-' expr %prec NEG     { Unop Neg $2 }
-  | '*' expr %prec NEG     { Unop Deref $2 }
+  | '*' expr %prec NEG     { Deref $2 }
   -- A hack to get around having the power operator
-  | '**' expr %prec NEG    { Unop Deref (Unop Deref $2) }
+  | '**' expr %prec NEG    { Deref (Deref $2) }
   | '&' expr %prec NEG     { Unop Addr $2 }
   | '!' expr               { Unop Not  $2 }
-  | expr '=' expr          { Binop  Assign $1 $3 }
+  | expr '=' expr          { Assign $1 $3 }
   | id '(' actuals_opt ')' { Call (pack $1) $3 }
   | '(' typ ')' expr %prec NEG { Cast $2 $4 }
   | expr '.' expr          { Access $1 $3 }
