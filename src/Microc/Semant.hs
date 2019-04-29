@@ -165,7 +165,7 @@ checkExpr expr
               _ -> assertSym >> case snd lhs' of
                 SId _           -> return (t1, SBinop Assign lhs' rhs')
                 SUnop   Deref _ -> return (t1, SBinop Assign lhs' rhs')
-                SAccess s     f -> return (t1, SAccess s f)
+                SAccess _     _ -> return (t1, SBinop Assign lhs' rhs')
                 _               -> throwError $ AssignmentError lhs rhs
 
             relational -> case (fst lhs', fst rhs') of
