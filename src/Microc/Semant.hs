@@ -93,6 +93,7 @@ checkExpr expr
         Literal  i -> return (TyInt, SLiteral i)
         Fliteral f -> return (TyFloat, SFliteral f)
         BoolLit  b -> return (TyBool, SBoolLit b)
+        Null       -> return (Pointer TyVoid, SNull)
         Noexpr     -> return (TyVoid, SNoexpr)
 
         Id s       -> do
@@ -161,13 +162,10 @@ checkExpr expr
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
 
-
-            relational -> case (fst lhs', fst rhs') of
-              (Pointer t, TyInt) ->
-                checkExpr (Binop relational lhs (Cast (Pointer t) rhs))
-              (TyInt, Pointer t) ->
-                checkExpr (Binop relational (Cast (Pointer t) lhs) rhs)
-              _ -> do
+            relational -> case (snd lhs', snd rhs') of
+              (SNull, _    ) -> checkExpr (Binop relational (Cast t1 lhs) rhs)
+              (_    , SNull) -> checkExpr (Binop relational lhs (Cast t1 rhs))
+              _              -> do
                 assertSym
                 unless (isNumeric t1) $ throwError $ TypeError
                   [TyInt, TyFloat]
@@ -192,7 +190,7 @@ checkExpr expr
           (t, e') <- checkExpr e
           case e' of
             LVal l -> return (Pointer t, SAddr l)
-            _ -> throwError (AddressError e)
+            _      -> throwError (AddressError e)
 
         Deref e -> do
           (ty, e') <- checkExpr e
@@ -237,10 +235,10 @@ checkExpr expr
             Id f -> pure f
             _    -> throwError (AccessError field e)
 
-          (t, e')           <- checkExpr e
-          l <- case e' of
+          (t, e') <- checkExpr e
+          l       <- case e' of
             LVal l' -> pure l'
-            _ -> throwError (AccessError e field)
+            _       -> throwError (AccessError e field)
           (Struct _ fields) <- case t of
             TyStruct name' -> do
               ss <- gets structs
@@ -264,10 +262,10 @@ checkExpr expr
 
           lval <- case snd lhs' of
             LVal e -> pure e
-            _ -> throwError $ AssignmentError lhs rhs
-          case (fst lhs', fst rhs') of
-            (Pointer t, TyInt) -> checkExpr (Assign lhs (Cast (Pointer t) rhs))
-            _                  -> (t2, SAssign lval rhs') <$ assertSym
+            _      -> throwError $ AssignmentError lhs rhs
+          case snd rhs' of
+            SNull -> checkExpr (Assign lhs (Cast t1 rhs))
+            _     -> (t2, SAssign lval rhs') <$ assertSym
 
 checkStatement :: Statement -> Semant SStatement
 checkStatement stmt = case stmt of

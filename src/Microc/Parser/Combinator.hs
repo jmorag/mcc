@@ -51,6 +51,7 @@ opTable =
 termP :: Parser Expr
 termP = try (Cast <$> parens typeP <*> exprP)
     <|> parens exprP
+    <|> Null <$ rword "NULL"
     <|> try (Fliteral <$> float)
     <|> Literal <$> int
     <|> BoolLit <$> (True <$ rword "true" <|> False <$ rword "false")

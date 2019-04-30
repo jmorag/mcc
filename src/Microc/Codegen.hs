@@ -106,14 +106,16 @@ codegenLVal (SAccess e i) = do
   L.gep e' [zero, offset]
 
 codegenSexpr :: SExpr -> Codegen AST.Operand
-codegenSexpr (TyInt  , SLiteral i     ) = L.int32 (fromIntegral i)
-codegenSexpr (TyFloat, SFliteral f    ) = L.double f
-codegenSexpr (TyBool , SBoolLit b     ) = L.bit (if b then 1 else 0)
+codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
+codegenSexpr (TyFloat, SFliteral f) = L.double f
+codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
+codegenSexpr (t, SNull) =
+  L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
 
 -- All LVals are already memory addresses.
-codegenSexpr (_      , SAddr e        ) = codegenLVal e
-codegenSexpr (_      , LVal e         ) = flip L.load 0 =<< codegenLVal e
-codegenSexpr (_      , SAssign lhs rhs) = do
+codegenSexpr (_, SAddr e        ) = codegenLVal e
+codegenSexpr (_, LVal e         ) = flip L.load 0 =<< codegenLVal e
+codegenSexpr (_, SAssign lhs rhs) = do
   rhs' <- codegenSexpr rhs
   lhs' <- codegenLVal lhs
   L.store lhs' 0 rhs'
@@ -235,14 +237,9 @@ codegenSexpr (_, SCall fun es) = do
       f <- gets ((M.! fun) . operands)
       L.call f es'
 
-codegenSexpr (_, SCast t (t', e)) = do
-  e' <- codegenSexpr (t', e)
-  case (t, t') of
-    (Pointer _, Pointer _) -> L.bitcast e' =<< ltypeOfTyp t
-    (Pointer _, TyInt    ) -> do
-      bigint <- L.zext e' AST.i64
-      L.inttoptr bigint =<< ltypeOfTyp t
-    _ -> error "Semant failed - invalid cast"
+codegenSexpr (_, SCast t e) = do
+  e' <- codegenSexpr e
+  L.bitcast e' =<< ltypeOfTyp t
 
 codegenSexpr (_, SNoexpr) = L.int32 0
 
@@ -381,18 +378,11 @@ emitTypeDef (Struct name _) = do
 
 
 codegenProgram :: SProgram -> AST.Module
-codegenProgram (structs, globals, funcs) = modl
-  -- Default to unknown linux target.
-  -- Clang will override this on other architectures so
-  -- it's harmless to include here.
-  { AST.moduleTargetTriple = Just "x86_64-unknown-linux-gnu"
-  }
- where
-  modl =
-    flip evalState (Env {operands = M.empty, structs })
-      $ L.buildModuleT "microc"
-      $ do
-          emitBuiltIns
-          mapM_ emitTypeDef   structs
-          mapM_ codegenGlobal globals
-          mapM_ codegenFunc   funcs
+codegenProgram (structs, globals, funcs) =
+  flip evalState (Env {operands = M.empty, structs })
+    $ L.buildModuleT "microc"
+    $ do
+        emitBuiltIns
+        mapM_ emitTypeDef   structs
+        mapM_ codegenGlobal globals
+        mapM_ codegenFunc   funcs

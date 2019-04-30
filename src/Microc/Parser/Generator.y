@@ -15,8 +15,9 @@ import Prelude hiding (fst, snd)
   int    { LInt   $$ }
   float  { LFloat $$ }
   id     { LId    $$ }
-  primtype { LType  $$ }
+  ptype  { LType  $$ }
   bool   { LBool  $$ }
+  null   { LNull }
   return { LRet }
   struct { LStruct }
   '='    { LAssign }
@@ -93,7 +94,7 @@ formal_list:
   | formal_list ',' typ id { Bind $3 (pack $4) : $1 }
 
 typ:
-    primtype stars { foldr (const Pointer) $1 $2 }
+    ptype stars     { foldr (const Pointer) $1 $2 }
   | struct id stars { foldr (const Pointer) (TyStruct (pack $2)) $3 }
 
 stars:
@@ -134,6 +135,7 @@ expr:
     int                    { Literal $1 }
   | float                  { Fliteral $1 }
   | bool                   { BoolLit $1 }
+  | null                   { Null }
   | id                     { Id (pack $1) }
   | expr '+'  expr         { Binop  Add  $1 $3 }
   | expr '-'  expr         { Binop  Sub  $1 $3 }

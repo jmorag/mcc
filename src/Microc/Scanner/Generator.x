@@ -51,7 +51,7 @@ tokens :-
  "struct" { const LStruct }
  "true"   { const $ LBool True    }
  "false"  { const $ LBool False   }
- "NULL"   { const (LInt 0)}
+ "NULL"   { const LNull }
  $digit+  { \s -> LInt (read s) }
  $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }
@@ -63,6 +63,7 @@ data Lexeme = LInt Int
             | LType Type
             | LStruct
             | LBool Bool
+            | LNull
             | LRet
             | LAssign
             | LComma

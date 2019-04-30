@@ -8,6 +8,7 @@ data SExpr' =
     SLiteral Int
   | SFliteral Double
   | SBoolLit Bool
+  | SNull
   | SBinop Op SExpr SExpr
   | SUnop Uop SExpr
   | SCall Text [SExpr]

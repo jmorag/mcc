@@ -67,7 +67,7 @@ identifier = (lexeme . try) (p >>= check)
     else return x
 
 int :: Parser Int
-int = lexeme L.decimal <|> (0 <$ rword "NULL")
+int = lexeme L.decimal
 
 float :: Parser Double
 float = lexeme L.float

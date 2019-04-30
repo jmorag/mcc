@@ -38,6 +38,7 @@ data Bind = Bind { bindType :: Type, bindName :: Text } deriving (Show, Eq)
 data Expr = Literal Int
           | Fliteral Double
           | BoolLit Bool
+          | Null
           | Id Text
           | Binop Op Expr Expr
           | Unop Uop Expr
@@ -117,6 +118,7 @@ instance Pretty Expr where
     Literal i -> pretty i
     Fliteral f -> pretty f
     BoolLit b -> if b then "true" else "false"
+    Null -> "NULL"
     Id t -> pretty t
     Binop op lhs rhs -> hsep [pretty lhs, pretty op, pretty rhs]
     Unop op e -> pretty op <> parens (pretty e)
