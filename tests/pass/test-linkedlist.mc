@@ -6,7 +6,7 @@ struct List
 
 struct List *cons(int x, struct List *tail) {
   struct List *head;
-  head = (struct List *)malloc(64); // This should be the size of the struct...
+  head = (struct List *)malloc(sizeof(struct List));
   head->val = x;
   head->next = tail;
   return head;

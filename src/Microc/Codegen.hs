@@ -111,6 +111,7 @@ codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
 codegenSexpr (t, SNull) =
   L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
+codegenSexpr (TyInt, SSizeof t) = L.int32 =<< fromIntegral <$> sizeof t
 
 -- All LVals are already memory addresses.
 codegenSexpr (_, SAddr e        ) = codegenLVal e

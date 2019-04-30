@@ -55,6 +55,7 @@ termP = try (Cast <$> parens typeP <*> exprP)
     <|> try (Fliteral <$> float)
     <|> Literal <$> int
     <|> BoolLit <$> (True <$ rword "true" <|> False <$ rword "false")
+    <|> Sizeof <$> (rword "sizeof" *> parens typeP)
     <|> try (Call <$> identifier <*> parens (exprP `sepBy` comma))
     <|> Id <$> identifier
 

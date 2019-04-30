@@ -20,6 +20,7 @@ import Prelude hiding (fst, snd)
   null   { LNull }
   return { LRet }
   struct { LStruct }
+  sizeof { LSizeof }
   '='    { LAssign }
   ','    { LComma }
   ';'    { LSemi }
@@ -163,6 +164,7 @@ expr:
   | '(' typ ')' expr %prec NEG { Cast $2 $4 }
   | expr '.' expr          { Access $1 $3 }
   | expr '->' expr         { Access (Deref $1) $3}
+  | sizeof '(' typ ')'     { Sizeof $3 }
   | '(' expr ')'           { $2 }
 
 actuals_opt:

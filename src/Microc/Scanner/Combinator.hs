@@ -56,6 +56,7 @@ rws =
   , "return"
   , "struct"
   , "NULL"
+  , "sizeof"
   ]
 
 identifier :: Parser Text

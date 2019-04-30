@@ -52,6 +52,7 @@ tokens :-
  "true"   { const $ LBool True    }
  "false"  { const $ LBool False   }
  "NULL"   { const LNull }
+ "sizeof" { const LSizeof }
  $digit+  { \s -> LInt (read s) }
  $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }
@@ -96,4 +97,5 @@ data Lexeme = LInt Int
             | LPow
             | LDot
             | LArrow
+            | LSizeof
             }

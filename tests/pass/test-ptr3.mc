@@ -4,9 +4,9 @@ int main()
   int *n; int *m;
   float *f; float *g;
   bool *b; bool *c;
-  n = (int *)malloc(10 * 4);
-  f = (float *)malloc(10 * 8);
-  b = (bool *)malloc(10);
+  n = (int *)malloc(10 * sizeof(int));
+  f = (float *)malloc(10 * sizeof(float));
+  b = (bool *)malloc(10 * sizeof(bool));
 
   m = n + 9;
   g = f + 9;

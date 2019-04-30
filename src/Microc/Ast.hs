@@ -48,6 +48,7 @@ data Expr = Literal Int
           | Deref Expr
           | Addr Expr
           | Assign Expr Expr
+          | Sizeof Type
           | Noexpr
           deriving (Show, Eq)
 
@@ -128,6 +129,7 @@ instance Pretty Expr where
     Assign lhs rhs -> pretty lhs <+> "=" <+> pretty rhs
     Deref e -> "*" <> parens (pretty e)
     Addr e -> "&" <> parens (pretty e)
+    Sizeof t -> "sizeof" <> parens (pretty t)
     Noexpr -> mempty
 
 

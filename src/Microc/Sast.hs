@@ -16,6 +16,7 @@ data SExpr' =
   | LVal LValue
   | SAssign LValue SExpr
   | SAddr LValue
+  | SSizeof Type
   | SNoexpr
   deriving (Show, Eq)
 

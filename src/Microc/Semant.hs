@@ -93,6 +93,7 @@ checkExpr expr
         Literal  i -> return (TyInt, SLiteral i)
         Fliteral f -> return (TyFloat, SFliteral f)
         BoolLit  b -> return (TyBool, SBoolLit b)
+        Sizeof   t -> return (TyInt, SSizeof t)
         Null       -> return (Pointer TyVoid, SNull)
         Noexpr     -> return (TyVoid, SNoexpr)
 
