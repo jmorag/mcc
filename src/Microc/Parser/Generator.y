@@ -47,6 +47,7 @@ import Prelude hiding (fst, snd)
   '|'    { LBitOr  }
   '**'   { LPow }
   '.'    { LDot }
+  '->'   { LArrow }
 
 %nonassoc NOELSE
 %nonassoc else
@@ -61,7 +62,7 @@ import Prelude hiding (fst, snd)
 %left '*' '/'
 %right '**'
 %right '!' NEG
-%left '.'
+%left '.' '->'
 
 
 %%
@@ -159,6 +160,7 @@ expr:
   | id '(' actuals_opt ')' { Call (pack $1) $3 }
   | '(' typ ')' expr %prec NEG { Cast $2 $4 }
   | expr '.' expr          { Access $1 $3 }
+  | expr '->' expr         { Access (Deref $1) $3}
   | '(' expr ')'           { $2 }
 
 actuals_opt:

@@ -16,8 +16,14 @@ import           Data.Either
 
 opTable :: [[Operator Parser Expr]]
 opTable =
-  [ [InfixL $ Access <$ symbol "."]
-  , [unary (Unop Neg) "-", unary (Unop Not) "!", unary Deref "*", unary Addr "&"]
+  [ [ InfixL $ Access <$ symbol "."
+    , InfixL $ (\lhs rhs -> Access (Deref lhs) rhs) <$ symbol "->"
+    ]
+  , [ unary (Unop Neg) "-"
+    , unary (Unop Not) "!"
+    , unary Deref      "*"
+    , unary Addr       "&"
+    ]
   , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
   , [infixL Add "+", infixL Sub "-"]

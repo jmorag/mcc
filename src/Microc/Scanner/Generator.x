@@ -38,6 +38,7 @@ tokens :-
  \|       { const LBitOr   }
  \*\*     { const LPow     }
  \.       { const LDot     }
+ \-\>     { const LArrow   }
  "if"     { const LIf      }
  "else"   { const LElse    }
  "for"    { const LFor     }
@@ -93,4 +94,5 @@ data Lexeme = LInt Int
             | LBitOr
             | LPow
             | LDot
+            | LArrow
             }
