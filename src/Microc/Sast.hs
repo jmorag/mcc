@@ -14,12 +14,14 @@ data SExpr' =
   | SCast Type SExpr
   | LVal LValue
   | SAssign LValue SExpr
+  | SAddr LValue
   | SNoexpr
   deriving (Show, Eq)
 
 -- | LValues are the class of assignable expressions that can appear
--- on the Left side on the '=' operator
-data LValue = SDeref SExpr | SAccess SExpr Int | SId Text
+-- on the Left side on the '=' operator and that can have their addresses
+-- taken.
+data LValue = SDeref SExpr | SAccess LValue Int | SId Text
   deriving (Show, Eq)
 
 data SStatement =

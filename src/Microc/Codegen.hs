@@ -21,9 +21,7 @@ import qualified LLVM.IRBuilder.Module         as L
 import qualified LLVM.IRBuilder.Monad          as L
 import qualified LLVM.IRBuilder.Instruction    as L
 import qualified LLVM.IRBuilder.Constant       as L
-import           LLVM.Prelude                   ( ShortByteString
-                                                , fromMaybe
-                                                )
+import           LLVM.Prelude                   ( ShortByteString )
 
 import qualified Data.Map                      as M
 import           Control.Monad.State
@@ -42,9 +40,8 @@ import           Data.String.Conversions
 import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
 import           Data.Word                      ( Word32 )
-import           Data.List                      ( find
-                                                , findIndex
-                                                )
+import           Data.List                      ( find )
+
 -- When using the IRBuilder, both functions and variables have the type Operand
 data Env = Env { operands :: M.Map Text AST.Operand, structs :: [ Struct ] }
 
@@ -98,40 +95,34 @@ sizeof = \case
   Pointer  _ -> pure 8
   TyStruct n -> fmap sum $ mapM (sizeof . bindType) =<< getFields n
 
+codegenLVal :: LValue -> Codegen AST.Operand
+codegenLVal (SId    name) = gets ((M.! name) . operands)
+codegenLVal (SDeref e   ) = codegenSexpr e
+
+codegenLVal (SAccess e i) = do
+  e'     <- codegenLVal e
+  zero   <- L.int32 0
+  offset <- L.int32 (fromIntegral i)
+  L.gep e' [zero, offset]
+
 codegenSexpr :: SExpr -> Codegen AST.Operand
-codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
-codegenSexpr (TyFloat, SFliteral f) = L.double f
-codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
-codegenSexpr (_      , SId name   ) = do
-  addr <- gets ((M.! name) . operands)
-  L.load addr 0
+codegenSexpr (TyInt  , SLiteral i     ) = L.int32 (fromIntegral i)
+codegenSexpr (TyFloat, SFliteral f    ) = L.double f
+codegenSexpr (TyBool , SBoolLit b     ) = L.bit (if b then 1 else 0)
 
--- Handle assignment separately from other binops
-codegenSexpr (_, SBinop Assign lhs rhs) = do
+-- All LVals are already memory addresses.
+codegenSexpr (_      , SAddr e        ) = codegenLVal e
+codegenSexpr (_      , LVal e         ) = flip L.load 0 =<< codegenLVal e
+codegenSexpr (_      , SAssign lhs rhs) = do
   rhs' <- codegenSexpr rhs
-  addr <- case snd lhs of
-    SId name                             -> gets ((M.! name) . operands)
-    SUnop   Deref                  l     -> codegenSexpr l
-    SAccess e@(TyStruct struct, _) field -> do
-      fields <- getFields struct
-      let offset =
-            fromMaybe (error "Internal error - unknown struct field")
-              $ findIndex (\b -> bindName b == field) fields
-      e'      <- codegenSexpr (Pointer (TyStruct struct), SUnop Addr e)
-      offset' <- L.int32 (fromIntegral offset)
-      zero    <- L.int32 0
-      L.gep e' [zero, offset']
-
-    _ -> error "Internal error - semant failed"
-  L.store addr 0 rhs'
+  lhs' <- codegenLVal lhs
+  L.store lhs' 0 rhs'
   return rhs'
-
 codegenSexpr (t, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   case op of
-    Assign -> error "Unreachable"
-    Add    -> case t of
+    Add -> case t of
       TyInt     -> L.add lhs' rhs'
       TyFloat   -> L.fadd lhs' rhs'
       Pointer _ -> case (fst lhs, fst rhs) of
@@ -221,11 +212,6 @@ codegenSexpr (t, SUnop op e) = do
     Not -> case t of
       TyBool -> L.bit 1 >>= L.xor e'
       _      -> error "Internal error - semant failed"
-    Addr -> case snd e of
-      SId name      -> gets ((M.! name) . operands)
-      SUnop Deref l -> codegenSexpr l
-      _             -> error "Internal error - semant failed"
-    Deref -> L.load e' 0
 
 
 codegenSexpr (_, SCall fun es) = do
@@ -258,18 +244,7 @@ codegenSexpr (_, SCast t (t', e)) = do
       L.inttoptr bigint =<< ltypeOfTyp t
     _ -> error "Semant failed - invalid cast"
 
-codegenSexpr (_, SNoexpr                             ) = L.int32 0
-
-codegenSexpr (_, SAccess e@(TyStruct struct, _) field) = do
-  e'     <- codegenSexpr (Pointer (TyStruct struct), SUnop Addr e)
-  fields <- getFields struct
-  let offset =
-        fromMaybe (error "Internal error - unknown struct field")
-          $ findIndex (\b -> bindName b == field) fields
-  offset' <- L.int32 (fromIntegral offset)
-  zero    <- L.int32 0
-  addr    <- L.gep e' [zero, offset']
-  L.load addr 0
+codegenSexpr (_, SNoexpr) = L.int32 0
 
 -- Final catchall
 codegenSexpr sx =

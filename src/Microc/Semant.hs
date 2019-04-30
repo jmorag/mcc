@@ -16,7 +16,9 @@ import           Data.Maybe                     ( isJust )
 import           Data.Text                      ( Text
                                                 , singleton
                                                 )
-import           Data.List                      ( find )
+import           Data.List                      ( find
+                                                , findIndex
+                                                )
 import           Debug.Trace
 
 type Vars = M.Map (Text, VarKind) Type
@@ -99,7 +101,7 @@ checkExpr expr
                 map (\kind -> M.lookup (s, kind) vars) [Local, Formal, Global]
           case join $ find isJust foundVars of
             Nothing -> throwError $ UndefinedSymbol s Var expr
-            Just ty -> return (ty, SId s)
+            Just ty -> return (ty, LVal $ SId s)
 
         Binop op lhs rhs -> do
           lhs'@(t1, _) <- checkExpr lhs
@@ -159,14 +161,6 @@ checkExpr expr
                      (throwError $ TypeError [TyFloat] t1 (Expr expr))
               return (TyFloat, SCall "llvm.pow" [lhs', rhs'])
 
-            Assign -> case (fst lhs', fst rhs') of
-              (Pointer t, TyInt) ->
-                checkExpr (Binop Assign lhs (Cast (Pointer t) rhs))
-              _ -> assertSym >> case snd lhs' of
-                SId _           -> return (t1, SBinop Assign lhs' rhs')
-                SUnop   Deref _ -> return (t1, SBinop Assign lhs' rhs')
-                SAccess _     _ -> return (t1, SBinop Assign lhs' rhs')
-                _               -> throwError $ AssignmentError lhs rhs
 
             relational -> case (fst lhs', fst rhs') of
               (Pointer t, TyInt) ->
@@ -194,15 +188,20 @@ checkExpr expr
                                                              ty
                                                              (Expr expr)
               return (ty, SUnop Not e')
-            Deref -> case ty of
-              Pointer t -> return (t, SUnop Deref e')
-              _         -> throwError $ TypeError
-                [Pointer TyVoid, Pointer TyInt, Pointer TyFloat]
-                ty
-                (Expr expr)
+        Addr e -> do
+          (t, e') <- checkExpr e
+          case e' of
+            LVal l -> return (Pointer t, SAddr l)
+            _ -> throwError (AddressError e)
 
-            Addr -> return (Pointer ty, SUnop Addr e')
-
+        Deref e -> do
+          (ty, e') <- checkExpr e
+          case ty of
+            Pointer t -> return (t, LVal $ SDeref (ty, e'))
+            _         -> throwError $ TypeError
+              [Pointer TyVoid, Pointer TyInt, Pointer TyFloat]
+              ty
+              (Expr expr)
 
         Call s es -> do
           funcs <- gets funcs
@@ -239,6 +238,9 @@ checkExpr expr
             _    -> throwError (AccessError field e)
 
           (t, e')           <- checkExpr e
+          l <- case e' of
+            LVal l' -> pure l'
+            _ -> throwError (AccessError e field)
           (Struct _ fields) <- case t of
             TyStruct name' -> do
               ss <- gets structs
@@ -248,11 +250,24 @@ checkExpr expr
                 Just s -> pure s
             _ -> throwError (TypeError [TyStruct "a_struct"] t (Expr expr))
 
-          t' <- case find (\(Bind _ f) -> f == fieldName) fields of
-            Nothing           -> throwError (AccessError e field)
-            Just (Bind typ _) -> pure typ
+          f <- case findIndex (\(Bind _ f) -> f == fieldName) fields of
+            Nothing -> throwError (AccessError e field)
+            Just i  -> pure i
 
-          return (t', SAccess (t, e') fieldName)
+          return (bindType (fields !! f), LVal $ SAccess l f)
+
+        Assign lhs rhs -> do
+          lhs'@(t1, _) <- checkExpr lhs
+          rhs'@(t2, _) <- checkExpr rhs
+          let assertSym =
+                unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
+
+          lval <- case snd lhs' of
+            LVal e -> pure e
+            _ -> throwError $ AssignmentError lhs rhs
+          case (fst lhs', fst rhs') of
+            (Pointer t, TyInt) -> checkExpr (Assign lhs (Cast (Pointer t) rhs))
+            _                  -> (t2, SAssign lval rhs') <$ assertSym
 
 checkStatement :: Statement -> Semant SStatement
 checkStatement stmt = case stmt of

@@ -21,7 +21,6 @@ data Op = Add
 
 data Uop = Neg
          | Not
-         | Addr
          deriving (Show, Eq)
 
 data Struct = Struct { structName :: Text, structFields :: [Bind] }
@@ -46,6 +45,7 @@ data Expr = Literal Int
           | Cast Type Expr
           | Access Expr Expr
           | Deref Expr
+          | Addr Expr
           | Assign Expr Expr
           | Noexpr
           deriving (Show, Eq)
@@ -94,7 +94,6 @@ instance Pretty Uop where
   pretty = \case
     Neg -> "-"
     Not -> "!"
-    Addr -> "&"
 
 instance Pretty Struct where
   pretty (Struct nm binds) = "struct" <+>
@@ -124,9 +123,11 @@ instance Pretty Expr where
     Call f es -> pretty f <> tupled (map pretty es)
     Cast t e -> parens (pretty t) <> parens (pretty e)
     Access struct field -> pretty struct <> "." <> pretty field
-    Assign lhs rhs -> pretty lhs <> "=" <> pretty rhs
+    Assign lhs rhs -> pretty lhs <+> "=" <+> pretty rhs
     Deref e -> "*" <> parens (pretty e)
+    Addr e -> "&" <> parens (pretty e)
     Noexpr -> mempty
+
 
 instance Pretty Statement where
   pretty = \case

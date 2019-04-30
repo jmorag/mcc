@@ -153,7 +153,7 @@ expr:
   | '*' expr %prec NEG     { Deref $2 }
   -- A hack to get around having the power operator
   | '**' expr %prec NEG    { Deref (Deref $2) }
-  | '&' expr %prec NEG     { Unop Addr $2 }
+  | '&' expr %prec NEG     { Addr $2 }
   | '!' expr               { Unop Not  $2 }
   | expr '=' expr          { Assign $1 $3 }
   | id '(' actuals_opt ')' { Call (pack $1) $3 }

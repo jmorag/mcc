@@ -14,6 +14,7 @@ data SemantError =
   | ArgError { nExpected :: Int, nGot :: Int, callSite :: Expr }
   | Redeclaration Name
   | NoMain
+  | AddressError Expr
   | AssignmentError { lhs :: Expr, rhs :: Expr }
   | AccessError { struct :: Expr, field :: Expr }
   | DeadCode Statement -- ^ For statements in a block following a return
@@ -68,6 +69,9 @@ instance Pretty SemantError where
     AssignmentError lhs rhs ->
       "Cannot assign" <+> pretty rhs <+> "to" <+> pretty lhs
 
+    AddressError e ->
+      "Cannot take address of" <> pretty e
+      
     AccessError struct field ->
       "Cannot access" <+> pretty struct <+> "with" <+> pretty field
 
