@@ -28,6 +28,9 @@ parens = between (symbol "(") (symbol ")")
 braces :: Parser a -> Parser a
 braces = between (symbol "{") (symbol "}")
 
+quotes :: Parser a -> Parser a
+quotes = between (single '"') (single '"')
+
 semi :: Parser ()
 semi = void $ symbol ";"
 
@@ -58,6 +61,10 @@ rws =
   , "NULL"
   , "sizeof"
   ]
+
+-- Handle escaping later
+strlit :: Parser Text
+strlit = quotes $ takeWhileP Nothing (/= '"')
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)

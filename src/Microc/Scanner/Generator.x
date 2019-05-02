@@ -56,10 +56,13 @@ tokens :-
  $digit+  { \s -> LInt (read s) }
  $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
  $alpha [$alpha $digit \_]* { \s -> LId s }
+ \" [^\"]* \" { \s -> LStrLit (init (tail s)) -- this doesn't handle escaping }
+
 
 {
 data Lexeme = LInt Int
             | LFloat Double
+            | LStrLit String
             | LId String
             | LType Type
             | LStruct

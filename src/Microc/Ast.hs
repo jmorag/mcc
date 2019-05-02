@@ -30,12 +30,14 @@ data Type = Pointer Type
           | TyInt
           | TyBool
           | TyFloat
+          | TyChar
           | TyVoid
           | TyStruct Text
           deriving (Show, Eq)
 data Bind = Bind { bindType :: Type, bindName :: Text } deriving (Show, Eq)
 
 data Expr = Literal Int
+          | StrLit Text
           | Fliteral Double
           | BoolLit Bool
           | Null
@@ -106,6 +108,7 @@ instance Pretty Type where
   pretty = \case
     TyInt -> "int"
     TyBool -> "bool"
+    TyChar -> "char"
     TyFloat -> "float"
     TyVoid -> "void"
     Pointer t -> pretty t <+> "*"
@@ -118,6 +121,7 @@ instance Pretty Expr where
   pretty = \case
     Literal i -> pretty i
     Fliteral f -> pretty f
+    StrLit s -> dquotes $ pretty s
     BoolLit b -> if b then "true" else "false"
     Null -> "NULL"
     Id t -> pretty t
