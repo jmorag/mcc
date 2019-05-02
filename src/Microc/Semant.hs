@@ -87,6 +87,7 @@ checkExpr expr
   = let isNumeric t = case t of
           TyInt     -> True
           TyFloat   -> True
+          TyChar    -> True
           Pointer _ -> True
           _         -> False
     in
@@ -94,6 +95,7 @@ checkExpr expr
         Literal  i -> return (TyInt, SLiteral i)
         Fliteral f -> return (TyFloat, SFliteral f)
         BoolLit  b -> return (TyBool, SBoolLit b)
+        CharLit  c -> return (TyChar, SCharLit c)
         StrLit   s -> return (Pointer TyChar, SStrLit s)
         Sizeof   t -> return (TyInt, SSizeof t)
         Null       -> return (Pointer TyVoid, SNull)

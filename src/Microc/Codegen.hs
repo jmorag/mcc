@@ -111,6 +111,8 @@ codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
+codegenSexpr (TyChar, SCharLit c) =
+  pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
 codegenSexpr (Pointer TyChar, SStrLit s) =
   L.globalStringPtr (cs s) (mkName (cs s))
 codegenSexpr (t, SNull) =
@@ -167,36 +169,43 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       _       -> error "Internal error - semant failed"
     Power ->
       error "Internal error - Power should have been eliminated in semant"
+    -- Only relational operators defined on chars, not arithmetic
     Equal -> case fst lhs of
       TyInt     -> L.icmp IP.EQ lhs' rhs'
       TyBool    -> L.icmp IP.EQ lhs' rhs'
+      TyChar    -> L.icmp IP.EQ lhs' rhs'
       Pointer _ -> L.icmp IP.EQ lhs' rhs'
       TyFloat   -> L.fcmp FP.OEQ lhs' rhs'
       _         -> error "Internal error - semant failed"
     Neq -> case fst lhs of
       TyInt     -> L.icmp IP.NE lhs' rhs'
       TyBool    -> L.icmp IP.NE lhs' rhs'
+      TyChar    -> L.icmp IP.NE lhs' rhs'
       Pointer _ -> L.icmp IP.NE lhs' rhs'
       TyFloat   -> L.fcmp FP.ONE lhs' rhs'
       _         -> error "Internal error - semant failed"
     Less -> case fst lhs of
       TyInt   -> L.icmp IP.SLT lhs' rhs'
       TyBool  -> L.icmp IP.SLT lhs' rhs'
+      TyChar  -> L.icmp IP.ULT lhs' rhs'
       TyFloat -> L.fcmp FP.OLT lhs' rhs'
       _       -> error "Internal error - semant failed"
     Leq -> case fst lhs of
       TyInt   -> L.icmp IP.SLE lhs' rhs'
       TyBool  -> L.icmp IP.SLE lhs' rhs'
+      TyChar  -> L.icmp IP.ULE lhs' rhs'
       TyFloat -> L.fcmp FP.OLE lhs' rhs'
       _       -> error "Internal error - semant failed"
     Greater -> case fst lhs of
       TyInt   -> L.icmp IP.SGT lhs' rhs'
       TyBool  -> L.icmp IP.SGT lhs' rhs'
+      TyChar  -> L.icmp IP.UGT lhs' rhs'
       TyFloat -> L.fcmp FP.OGT lhs' rhs'
       _       -> error "Internal error - semant failed"
     Geq -> case fst lhs of
       TyInt   -> L.icmp IP.SGE lhs' rhs'
       TyBool  -> L.icmp IP.SGE lhs' rhs'
+      TyChar  -> L.icmp IP.UGE lhs' rhs'
       TyFloat -> L.fcmp FP.OGE lhs' rhs'
       _       -> error "Internal error - semant failed"
     -- Relational operators all emit the same instructions
@@ -219,7 +228,6 @@ codegenSexpr (t, SUnop op e) = do
     Not -> case t of
       TyBool -> L.bit 1 >>= L.xor e'
       _      -> error "Internal error - semant failed"
-
 
 codegenSexpr (_, SCall fun es) = do
   intFormatStr   <- gets ((M.! "_intFmt") . operands)

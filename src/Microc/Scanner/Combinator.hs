@@ -1,6 +1,7 @@
 module Microc.Scanner.Combinator where
 
 import           Data.Void
+import           Data.Char
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer    as L
@@ -28,8 +29,11 @@ parens = between (symbol "(") (symbol ")")
 braces :: Parser a -> Parser a
 braces = between (symbol "{") (symbol "}")
 
-quotes :: Parser a -> Parser a
-quotes = between (single '"') (single '"')
+dquotes :: Parser a -> Parser a
+dquotes = between (single '"') (single '"')
+
+squotes :: Parser a -> Parser a
+squotes = between (single '\'') (single '\'')
 
 semi :: Parser ()
 semi = void $ symbol ";"
@@ -65,7 +69,13 @@ rws =
 
 -- Handle escaping later
 strlit :: Parser Text
-strlit = quotes $ takeWhileP Nothing (/= '"')
+strlit = dquotes $ takeWhileP Nothing (/= '"')
+
+charlit :: Parser Int
+charlit = squotes $ (ord <$> satisfy (`notElem` special)) <|> (single '\\' >> int)
+  where
+    special :: String
+    special = "\\'"
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)
