@@ -69,6 +69,7 @@ ltypeOfTyp :: MonadState Env m => Type -> m AST.Type
 ltypeOfTyp = \case
   TyVoid         -> pure AST.void
   TyInt          -> pure AST.i32
+  TyChar         -> pure AST.i8
   TyFloat        -> pure AST.double
   TyBool         -> pure AST.i1
   -- (void *) is invalid LLVM
@@ -89,6 +90,7 @@ charStar = AST.ptr AST.i8
 sizeof :: MonadState Env m => Type -> m Word32
 sizeof = \case
   TyBool     -> pure 1
+  TyChar     -> pure 1
   TyInt      -> pure 4
   TyFloat    -> pure 8
   TyVoid     -> pure 0
@@ -109,14 +111,16 @@ codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
+codegenSexpr (Pointer TyChar, SStrLit s) =
+  L.globalStringPtr (cs s) (mkName (cs s))
 codegenSexpr (t, SNull) =
   L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
-codegenSexpr (TyInt, SSizeof t) = L.int32 =<< fromIntegral <$> sizeof t
+codegenSexpr (TyInt, SSizeof t      ) = L.int32 =<< fromIntegral <$> sizeof t
 
 -- All LVals are already memory addresses.
-codegenSexpr (_, SAddr e        ) = codegenLVal e
-codegenSexpr (_, LVal e         ) = flip L.load 0 =<< codegenLVal e
-codegenSexpr (_, SAssign lhs rhs) = do
+codegenSexpr (_    , SAddr e        ) = codegenLVal e
+codegenSexpr (_    , LVal e         ) = flip L.load 0 =<< codegenLVal e
+codegenSexpr (_    , SAssign lhs rhs) = do
   rhs' <- codegenSexpr rhs
   lhs' <- codegenLVal lhs
   L.store lhs' 0 rhs'
@@ -220,6 +224,7 @@ codegenSexpr (t, SUnop op e) = do
 codegenSexpr (_, SCall fun es) = do
   intFormatStr   <- gets ((M.! "_intFmt") . operands)
   floatFormatStr <- gets ((M.! "_floatFmt") . operands)
+  strFormatStr   <- gets ((M.! "_strFmt") . operands)
   printf         <- gets ((M.! "printf") . operands)
   case fun of
     "print" -> do
@@ -228,6 +233,9 @@ codegenSexpr (_, SCall fun es) = do
     "printf" -> do
       e' <- codegenSexpr (head es)
       L.call printf [(floatFormatStr, []), (e', [])]
+    "prints" -> do
+      e' <- codegenSexpr (head es)
+      L.call printf [(strFormatStr, []), (e', [])]
     "printb" -> do
       e' <- codegenSexpr (head es)
       L.call printf [(intFormatStr, []), (e', [])]
@@ -350,8 +358,10 @@ emitBuiltIns = do
   registerOperand "printbig" printbig
   intFmt   <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
   floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
+  strFmt   <- L.globalStringPtr "%s\n" $ mkName "_strFmt"
   registerOperand "_intFmt"   intFmt
   registerOperand "_floatFmt" floatFmt
+  registerOperand "_strFmt"   strFmt
 
   llvmPow <- L.extern (mkName "llvm.pow.f64")
                       [AST.double, AST.double]

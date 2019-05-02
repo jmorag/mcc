@@ -47,6 +47,7 @@ tokens :-
  "int"    { const $ LType TyInt   }
  "float"  { const $ LType TyFloat }
  "bool"   { const $ LType TyBool  }
+ "char"   { const $ LType TyChar  }
  "void"   { const $ LType TyVoid  }
  "struct" { const LStruct }
  "true"   { const $ LBool True    }

@@ -71,6 +71,7 @@ typeP = do
   baseType <- TyInt    <$ rword "int"
           <|> TyBool   <$ rword "bool"
           <|> TyFloat  <$ rword "float"
+          <|> TyChar   <$ rword "char"
           <|> TyVoid   <$ rword "void"
           <|> TyStruct <$> (rword "struct" *> identifier)
   foldr (const Pointer) baseType <$> many star

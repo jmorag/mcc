@@ -54,6 +54,7 @@ rws =
   , "for"
   , "int"
   , "bool"
+  , "char"
   , "float"
   , "void"
   , "return"
