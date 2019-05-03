@@ -45,7 +45,7 @@ import           Debug.Trace
 -- When using the IRBuilder, both functions and variables have the type Operand
 data Env = Env { operands :: M.Map Text AST.Operand
                , structs :: [ Struct ]
-               , stringCount :: Int
+               , strings :: (M.Map Text AST.Operand, Int)
                }
   deriving (Eq, Show)
 
@@ -119,10 +119,14 @@ codegenSexpr (TyChar, SCharLit c) =
   pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
 codegenSexpr (Pointer TyChar, SStrLit s) = do
   -- Generate a new unique global variable for every string literal we see
-  count <- gets stringCount
-  let nm = mkName (cs (".str" ++ show count))
-  modify $ \env -> env { stringCount = count + 1 }
-  L.globalStringPtr (cs s) nm
+  (strs, count) <- gets strings
+  case M.lookup s strs of
+    Nothing -> do
+      let nm = mkName (cs (".str" ++ show count))
+      op <- L.globalStringPtr (cs s) nm
+      modify $ \env -> env { strings = (M.insert s op strs, count + 1) }
+      pure op
+    Just op -> pure op
 
 codegenSexpr (t, SNull) =
   L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
@@ -348,15 +352,15 @@ codegenFunc f = mdo
     args <- mapM mkParam (sformals f)
     L.function name args retty body
   return ()
-  where
+ where
     -- Slightly different version of the locally combinator
     -- In this case we actually want to persist global string variables across
     -- different functions.
-    locally' codegen = do
-      ops <- gets operands
-      result <- codegen
-      modify $ \e -> e { operands = ops }
-      return result
+  locally' codegen = do
+    ops    <- gets operands
+    result <- codegen
+    modify $ \e -> e { operands = ops }
+    return result
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = do
@@ -391,7 +395,8 @@ emitTypeDef (Struct name _) = do
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
-  flip evalState (Env {operands = M.empty, structs = structs, stringCount = 0})
+  flip evalState
+       (Env {operands = M.empty, structs = structs, strings = (M.empty, 0)})
     $ L.buildModuleT "microc"
     $ do
         emitBuiltIns
