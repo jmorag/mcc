@@ -1,0 +1,158 @@
+#+Title: Adding "easy" features to C
+* The state of Microc before RC:
+
+#+BEGIN_SRC c
+int gcd(int a, int b) {
+  while (a != b)
+    if (a > b) a = a - b;
+    else b = b - a;
+  return a;
+}
+
+int fib(int x) {
+  if (x < 2) return 1;
+  return fib(x-1) + fib(x-2); 
+}
+
+void foo(int a) {
+  printf("%d\n", a + 3);
+  return;
+}
+#+END_SRC
+[[file:~/Projects/mcc/tests/pass/test-gcd2.mc][gcd test]]
+
+Not terribly interesting to program without user defined types and pointers, so let's add them!
+
+* Pointers
+** Simple pointers
+#+BEGIN_SRC c
+void pointer_demo() {
+    int i;
+    int *p;
+    i = 10;
+    p = &i;
+    *p = 1;
+    /* Please be 1, please please plzzzzzz */
+    printf("%d\n", i);
+    return;
+}
+#+END_SRC
+[[file:~/Projects/mcc/tests/pass/test-ptr1.mc][simple pointers]]
+
+** Pointer arithmetic
+LLVM doesn't implicitly do pointer arithmetic, but we can do it ourselves.
+[[file:~/Projects/mcc/tests/pass/test-ptr2.mc][pointer-arithmetic]]
+
+#+BEGIN_SRC c
+void pointer_demo2()
+{
+  int *p;
+  int *q;
+  p = (int *)malloc(sizeof(int) * 5);
+  for (q = p; q - p < 5; q = q + 1) {
+    // What are you, even...
+    printf("%d\n", q - p);
+  }
+  free((void *)p);
+  return 0;
+}
+#+END_SRC
+
+#+BEGIN_SRC llvm
+define external ccc  i32 @main()    {
+entry:
+  %0 = alloca i32* ; allocate space for p
+  %1 = alloca i32* ; allocate space for q
+  %2 = mul   i32 4, 5 ; you can guess this one
+  %3 =  call ccc  i8*  @malloc(i32  %2)  
+  %4 = bitcast i8* %3 to i32* ; pointer casting is fun
+  store  i32* %4, i32** %0 ; do the LLVM store load dance
+  %5 = load  i32*, i32** %0 
+  store  i32* %5, i32** %1 
+  %6 = load  i32*, i32** %1 
+  %7 = load  i32*, i32** %0 
+  %8 = ptrtoint i32* %6 to i64 ; even more dangerous than
+  %9 = ptrtoint i32* %7 to i64 ; casting
+  %10 = sub   i64 %8, %9
+  %11 = sdiv  i64 %10, 4 
+  %12 = icmp slt i64 %11, 5 
+  br i1 %12, label %while_body, label %merge 
+while_body:
+  %13 = load  i32*, i32** %1 
+  %14 = load  i32*, i32** %0 
+  %15 = ptrtoint i32* %13 to i64 
+  %16 = ptrtoint i32* %14 to i64 
+  %17 = sub   i64 %15, %16 
+  %18 = sdiv  i64 %17, 4 
+  %19 =  call ccc  i32 (i8*, ...) @printf(i8*  bitcast ([4 x i8]* @_intFmt to i8*), i64  %18)  
+  %20 = load  i32*, i32** %1 
+  %21 = getelementptr  i32, i32* %20, i32 1 
+  store  i32* %21, i32** %1 
+  %22 = load  i32*, i32** %1 
+  %23 = load  i32*, i32** %0 
+  %24 = ptrtoint i32* %22 to i64 
+  %25 = ptrtoint i32* %23 to i64 
+  %26 = sub   i64 %24, %25 
+  %27 = sdiv  i64 %26, 4 
+  %28 = icmp slt i64 %27, 5 
+  br i1 %28, label %while_body, label %merge 
+merge:
+  %29 = load  i32*, i32** %0 
+  %30 = bitcast i32* %29 to i8* 
+   call ccc  void  @free(i8*  %30) 
+  ret i32 0 ; phew, we're done
+}
+#+END_SRC
+
+* Structs
+Even /more/ interesting than pointers!
+** Let's make a really ambitious test case
+[[file:~/Projects/mcc/tests/pass/test-linkedlist.mc][A singly linked list]]
+** How do we type check it?
+#+BEGIN_SRC haskell
+data Struct = Struct { structName :: Text
+                     , structFields :: [Bind] }
+
+data Type = Pointer Type
+          | TyInt
+          | TyBool
+          | TyFloat
+          | TyChar
+          | TyVoid
+          | TyStruct Text
+
+data Bind = Bind { bindType :: Type, bindName :: Text }
+
+-- How about
+machineType :: Type -> State Env LLType
+machineType typ = case typ of
+  TyVoid         -> pure AST.void
+  TyInt          -> pure AST.i32
+  TyChar         -> pure AST.i8
+  TyFloat        -> pure AST.double
+  TyBool         -> pure AST.i1
+  Pointer t      -> pure (AST.ptr (machineType t))
+  TyStruct n -> do
+    fields <- getFields n
+    map (machineType . bindType) fields
+#+END_SRC
+** ...
+   [[~/Projects/mcc/docs/infinity.png]]
+*** joy...
+#+BEGIN_SRC haskell
+machineType :: Type -> State Env LLType
+machineType typ = case typ of
+  TyVoid         -> pure AST.void
+  TyInt          -> pure AST.i32
+  TyChar         -> pure AST.i8
+  TyFloat        -> pure AST.double
+  TyBool         -> pure AST.i1
+  -- Aha!
+  Pointer (TyStruct n) -> pure $
+    AST.ptr (AST.NamedTypeReference n)
+  Pointer t      -> pure (AST.ptr (machineType t))
+  TyStruct n -> do
+    fields <- getFields n
+    map (machineType . bindType) fields
+
+#+END_SRC
