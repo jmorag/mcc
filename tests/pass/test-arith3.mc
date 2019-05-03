@@ -8,6 +8,6 @@ int main()
   int a;
   a = 42;
   a = a + 5;
-  print(a);
+  printf("%d\n", a);
   return 0;
 }

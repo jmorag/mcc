@@ -45,9 +45,9 @@ goldenTests = testGroup "all" <$> sequence [passing, failing, parsing]
 parsing :: IO TestTree
 parsing = do
   mcFiles   <- findByExtension [".mc"] "tests/pass"
-  failFiles <- findByExtension [".mc"] "tests/fail"
+  -- failFiles <- findByExtension [".mc"] "tests/fail"
   testGroup "parsing" <$> forM
-    (mcFiles ++ failFiles)
+    (mcFiles)-- ++ failFiles)
     (\mcFile -> do
       input <- T.readFile mcFile
       case runParser programP mcFile input of

@@ -6,6 +6,6 @@ int main()
 {
   i = 42;
   j = 10;
-  print(i + j);
+  printf("%d\n", i + j);
   return 0;
 }

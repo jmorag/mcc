@@ -9,7 +9,7 @@ int main()
   struct point p;
   p.x = 10;
   p.y = 11;
-  print(p.x);
-  print(p.y);
+  printf("%d\n", p.x);
+  printf("%d\n", p.y);
   return 0;
 }

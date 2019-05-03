@@ -7,6 +7,8 @@ type SExpr = (Type, SExpr')
 data SExpr' =
     SLiteral Int
   | SFliteral Double
+  | SStrLit Text
+  | SCharLit Int
   | SBoolLit Bool
   | SNull
   | SBinop Op SExpr SExpr

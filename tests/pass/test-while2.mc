@@ -11,6 +11,6 @@ int foo(int a)
 
 int main()
 {
-  print(foo(7));
+  printf("%d\n", foo(7));
   return 0;
 }

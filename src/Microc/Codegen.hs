@@ -27,7 +27,6 @@ import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Data.String                    ( fromString )
 
-import           Microc.Utils
 import           Microc.Sast
 import           Microc.Ast                     ( Type(..)
                                                 , Op(..)
@@ -41,9 +40,14 @@ import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
 import           Data.Word                      ( Word32 )
 import           Data.List                      ( find )
+import           Debug.Trace
 
 -- When using the IRBuilder, both functions and variables have the type Operand
-data Env = Env { operands :: M.Map Text AST.Operand, structs :: [ Struct ] }
+data Env = Env { operands :: M.Map Text AST.Operand
+               , structs :: [ Struct ]
+               , strings :: (M.Map Text AST.Operand, Int)
+               }
+  deriving (Eq, Show)
 
 -- LLVM and Codegen type synonyms allow us to emit module definitions and basic
 -- block instructions at the top level without being forced to pass explicit
@@ -69,6 +73,7 @@ ltypeOfTyp :: MonadState Env m => Type -> m AST.Type
 ltypeOfTyp = \case
   TyVoid         -> pure AST.void
   TyInt          -> pure AST.i32
+  TyChar         -> pure AST.i8
   TyFloat        -> pure AST.double
   TyBool         -> pure AST.i1
   -- (void *) is invalid LLVM
@@ -89,6 +94,7 @@ charStar = AST.ptr AST.i8
 sizeof :: MonadState Env m => Type -> m Word32
 sizeof = \case
   TyBool     -> pure 1
+  TyChar     -> pure 1
   TyInt      -> pure 4
   TyFloat    -> pure 8
   TyVoid     -> pure 0
@@ -109,14 +115,27 @@ codegenSexpr :: SExpr -> Codegen AST.Operand
 codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
 codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
+codegenSexpr (TyChar, SCharLit c) =
+  pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
+codegenSexpr (Pointer TyChar, SStrLit s) = do
+  -- Generate a new unique global variable for every string literal we see
+  (strs, count) <- gets strings
+  case M.lookup s strs of
+    Nothing -> do
+      let nm = mkName (cs (".str" ++ show count))
+      op <- L.globalStringPtr (cs s) nm
+      modify $ \env -> env { strings = (M.insert s op strs, count + 1) }
+      pure op
+    Just op -> pure op
+
 codegenSexpr (t, SNull) =
   L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
-codegenSexpr (TyInt, SSizeof t) = L.int32 =<< fromIntegral <$> sizeof t
+codegenSexpr (TyInt, SSizeof t      ) = L.int32 =<< fromIntegral <$> sizeof t
 
 -- All LVals are already memory addresses.
-codegenSexpr (_, SAddr e        ) = codegenLVal e
-codegenSexpr (_, LVal e         ) = flip L.load 0 =<< codegenLVal e
-codegenSexpr (_, SAssign lhs rhs) = do
+codegenSexpr (_    , SAddr e        ) = codegenLVal e
+codegenSexpr (_    , LVal e         ) = flip L.load 0 =<< codegenLVal e
+codegenSexpr (_    , SAssign lhs rhs) = do
   rhs' <- codegenSexpr rhs
   lhs' <- codegenLVal lhs
   L.store lhs' 0 rhs'
@@ -163,36 +182,43 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       _       -> error "Internal error - semant failed"
     Power ->
       error "Internal error - Power should have been eliminated in semant"
+    -- Only relational operators defined on chars, not arithmetic
     Equal -> case fst lhs of
       TyInt     -> L.icmp IP.EQ lhs' rhs'
       TyBool    -> L.icmp IP.EQ lhs' rhs'
+      TyChar    -> L.icmp IP.EQ lhs' rhs'
       Pointer _ -> L.icmp IP.EQ lhs' rhs'
       TyFloat   -> L.fcmp FP.OEQ lhs' rhs'
       _         -> error "Internal error - semant failed"
     Neq -> case fst lhs of
       TyInt     -> L.icmp IP.NE lhs' rhs'
       TyBool    -> L.icmp IP.NE lhs' rhs'
+      TyChar    -> L.icmp IP.NE lhs' rhs'
       Pointer _ -> L.icmp IP.NE lhs' rhs'
       TyFloat   -> L.fcmp FP.ONE lhs' rhs'
       _         -> error "Internal error - semant failed"
     Less -> case fst lhs of
       TyInt   -> L.icmp IP.SLT lhs' rhs'
       TyBool  -> L.icmp IP.SLT lhs' rhs'
+      TyChar  -> L.icmp IP.ULT lhs' rhs'
       TyFloat -> L.fcmp FP.OLT lhs' rhs'
       _       -> error "Internal error - semant failed"
     Leq -> case fst lhs of
       TyInt   -> L.icmp IP.SLE lhs' rhs'
       TyBool  -> L.icmp IP.SLE lhs' rhs'
+      TyChar  -> L.icmp IP.ULE lhs' rhs'
       TyFloat -> L.fcmp FP.OLE lhs' rhs'
       _       -> error "Internal error - semant failed"
     Greater -> case fst lhs of
       TyInt   -> L.icmp IP.SGT lhs' rhs'
       TyBool  -> L.icmp IP.SGT lhs' rhs'
+      TyChar  -> L.icmp IP.UGT lhs' rhs'
       TyFloat -> L.fcmp FP.OGT lhs' rhs'
       _       -> error "Internal error - semant failed"
     Geq -> case fst lhs of
       TyInt   -> L.icmp IP.SGE lhs' rhs'
       TyBool  -> L.icmp IP.SGE lhs' rhs'
+      TyChar  -> L.icmp IP.UGE lhs' rhs'
       TyFloat -> L.fcmp FP.OGE lhs' rhs'
       _       -> error "Internal error - semant failed"
     -- Relational operators all emit the same instructions
@@ -216,27 +242,12 @@ codegenSexpr (t, SUnop op e) = do
       TyBool -> L.bit 1 >>= L.xor e'
       _      -> error "Internal error - semant failed"
 
-
 codegenSexpr (_, SCall fun es) = do
-  intFormatStr   <- gets ((M.! "_intFmt") . operands)
-  floatFormatStr <- gets ((M.! "_floatFmt") . operands)
-  printf         <- gets ((M.! "printf") . operands)
-  case fun of
-    "print" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(intFormatStr, []), (e', [])]
-    "printf" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(floatFormatStr, []), (e', [])]
-    "printb" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(intFormatStr, []), (e', [])]
-    _ -> do
-      es' <- forM es $ \e -> do
-        e' <- codegenSexpr e
-        return (e', [])
-      f <- gets ((M.! fun) . operands)
-      L.call f es'
+  es' <- forM es $ \e -> do
+    e' <- codegenSexpr e
+    return (e', [])
+  f <- gets ((M.! fun) . operands)
+  L.call f es'
 
 codegenSexpr (_, SCast t e) = do
   e' <- codegenSexpr e
@@ -312,7 +323,7 @@ codegenFunc f = mdo
   registerOperand (sname f) fun
   -- We wrap generating the function inside of the `locally` combinator in
   -- order to prevent local variables from escaping the scope of the function
-  fun <- locally $ do
+  fun <- locally' $ do
     retty <- ltypeOfTyp (styp f)
     let name = mkName (cs $ sname f)
         mkParam (Bind t n) =
@@ -341,6 +352,15 @@ codegenFunc f = mdo
     args <- mapM mkParam (sformals f)
     L.function name args retty body
   return ()
+ where
+    -- Slightly different version of the locally combinator
+    -- In this case we actually want to persist global string variables across
+    -- different functions.
+  locally' codegen = do
+    ops    <- gets operands
+    result <- codegen
+    modify $ \e -> e { operands = ops }
+    return result
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = do
@@ -348,11 +368,6 @@ emitBuiltIns = do
   printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
   registerOperand "printf"   printf
   registerOperand "printbig" printbig
-  intFmt   <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
-  floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
-  registerOperand "_intFmt"   intFmt
-  registerOperand "_floatFmt" floatFmt
-
   llvmPow <- L.extern (mkName "llvm.pow.f64")
                       [AST.double, AST.double]
                       AST.double
@@ -380,7 +395,8 @@ emitTypeDef (Struct name _) = do
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
-  flip evalState (Env {operands = M.empty, structs })
+  flip evalState
+       (Env {operands = M.empty, structs = structs, strings = (M.empty, 0)})
     $ L.buildModuleT "microc"
     $ do
         emitBuiltIns

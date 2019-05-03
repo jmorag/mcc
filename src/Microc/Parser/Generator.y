@@ -16,6 +16,8 @@ import Prelude hiding (fst, snd)
   float  { LFloat $$ }
   id     { LId    $$ }
   ptype  { LType  $$ }
+  char   { LCharLit $$ }
+  string { LStrLit $$ }
   bool   { LBool  $$ }
   null   { LNull }
   return { LRet }
@@ -135,6 +137,8 @@ expr_opt:
 expr:
     int                    { Literal $1 }
   | float                  { Fliteral $1 }
+  | char                   { CharLit $1 }
+  | string                 { StrLit (pack $1) }
   | bool                   { BoolLit $1 }
   | null                   { Null }
   | id                     { Id (pack $1) }

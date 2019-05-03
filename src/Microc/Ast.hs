@@ -1,6 +1,7 @@
 module Microc.Ast where
 import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
+import           Data.Char                      ( chr )
 
 data Op = Add
         | Sub
@@ -30,12 +31,15 @@ data Type = Pointer Type
           | TyInt
           | TyBool
           | TyFloat
+          | TyChar
           | TyVoid
           | TyStruct Text
           deriving (Show, Eq)
 data Bind = Bind { bindType :: Type, bindName :: Text } deriving (Show, Eq)
 
 data Expr = Literal Int
+          | StrLit Text
+          | CharLit Int
           | Fliteral Double
           | BoolLit Bool
           | Null
@@ -106,6 +110,7 @@ instance Pretty Type where
   pretty = \case
     TyInt -> "int"
     TyBool -> "bool"
+    TyChar -> "char"
     TyFloat -> "float"
     TyVoid -> "void"
     Pointer t -> pretty t <+> "*"
@@ -118,6 +123,8 @@ instance Pretty Expr where
   pretty = \case
     Literal i -> pretty i
     Fliteral f -> pretty f
+    CharLit c -> squotes $ pretty (chr c)
+    StrLit s -> dquotes $ pretty s
     BoolLit b -> if b then "true" else "false"
     Null -> "NULL"
     Id t -> pretty t

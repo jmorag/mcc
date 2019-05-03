@@ -8,6 +8,6 @@ void foo(int c)
 int main()
 {
   foo(73);
-  print(a);
+  printf("%d\n", a);
   return 0;
 }

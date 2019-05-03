@@ -8,8 +8,8 @@ int gcd(int a, int b) {
 
 int main()
 {
-  print(gcd(2,14));
-  print(gcd(3,15));
-  print(gcd(99,121));
+  printf("%d\n", gcd(2,14));
+  printf("%d\n", gcd(3,15));
+  printf("%d\n", gcd(99,121));
   return 0;
 }

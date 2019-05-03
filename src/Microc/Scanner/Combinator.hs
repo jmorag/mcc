@@ -1,12 +1,14 @@
 module Microc.Scanner.Combinator where
 
 import           Data.Void
+import           Data.Char
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer    as L
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as T
 import           Control.Monad                  ( void )
+import           Data.String.Conversions
 
 type Parser = Parsec Void Text
 
@@ -27,6 +29,12 @@ parens = between (symbol "(") (symbol ")")
 
 braces :: Parser a -> Parser a
 braces = between (symbol "{") (symbol "}")
+
+dquotes :: Parser a -> Parser a
+dquotes = between (single '"') (single '"')
+
+squotes :: Parser a -> Parser a
+squotes = between (single '\'') (single '\'')
 
 semi :: Parser ()
 semi = void $ symbol ";"
@@ -51,6 +59,7 @@ rws =
   , "for"
   , "int"
   , "bool"
+  , "char"
   , "float"
   , "void"
   , "return"
@@ -58,6 +67,19 @@ rws =
   , "NULL"
   , "sizeof"
   ]
+
+strlit :: Parser Text
+strlit = do
+  content <- dquotes $ takeWhileP Nothing (/= '"')
+  -- Hijack haskell's string lexer so we don't have to deal with escaping
+  pure $ T.pack (read ('"' : cs content ++ "\""))
+
+charlit :: Parser Int
+charlit =
+  squotes $ (ord <$> satisfy (`notElem` special)) <|> (single '\\' >> int)
+ where
+  special :: String
+  special = "\\'"
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)
