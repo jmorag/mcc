@@ -54,16 +54,19 @@ tokens :-
  "false"  { const $ LBool False   }
  "NULL"   { const LNull }
  "sizeof" { const LSizeof }
- $digit+  { \s -> LInt (read s) }
- $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { \s -> LFloat (read s) }
- $alpha [$alpha $digit \_]* { \s -> LId s }
- \" [^\"]* \" { \s -> LStrLit (init (tail s)) -- this doesn't handle escaping }
+ $digit+  { LInt . read }
+ $digit+ \. $digit* ( [eE] [\+\-]? $digit+ )? { LFloat . read }
+ $alpha [$alpha $digit \_]* { LId }
+ \" [^\"]* \"  { LStrLit . read -- this doesn't handle quote escaping }
+ \' [^\'\\] \' { LCharLit . ord . head . init . tail }
+ \'\\$digit+\' { LCharLit . read . init . drop 2 }
 
 
 {
 data Lexeme = LInt Int
             | LFloat Double
             | LStrLit String
+            | LCharLit Int
             | LId String
             | LType Type
             | LStruct

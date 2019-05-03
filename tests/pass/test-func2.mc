@@ -12,7 +12,7 @@ int main()
 
   fun(i = 2, i = i+1);
 
-  print(i);
+  printf("%d\n", i);
   return 0;
 }
 

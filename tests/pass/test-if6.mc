@@ -12,7 +12,7 @@ int cond(bool b)
 
 int main()
 {
- print(cond(true));
- print(cond(false));
+ printf("%d\n", cond(true));
+ printf("%d\n", cond(false));
  return 0;
 }

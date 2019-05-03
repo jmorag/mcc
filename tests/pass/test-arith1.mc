@@ -1,5 +1,5 @@
 int main()
 {
-  print(39 + 3);
+  printf("%d\n", 39 + 3);
   return 0;
 }

@@ -10,11 +10,11 @@ int strlen (char *string) {
 
 int main()
 {
-  char *s;
+  char *string;
   int i;
-  s = "Hello world!";
-  prints(s);
-  print(strlen(s));
+  string = "Hello world!";
+  printf("%s\n", string);
+  printf("%d\n", strlen(string));
 
   return 0;
 }

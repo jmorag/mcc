@@ -27,7 +27,6 @@ import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Data.String                    ( fromString )
 
-import           Microc.Utils
 import           Microc.Sast
 import           Microc.Ast                     ( Type(..)
                                                 , Op(..)
@@ -41,9 +40,14 @@ import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
 import           Data.Word                      ( Word32 )
 import           Data.List                      ( find )
+import           Debug.Trace
 
 -- When using the IRBuilder, both functions and variables have the type Operand
-data Env = Env { operands :: M.Map Text AST.Operand, structs :: [ Struct ] }
+data Env = Env { operands :: M.Map Text AST.Operand
+               , structs :: [ Struct ]
+               , stringCount :: Int
+               }
+  deriving (Eq, Show)
 
 -- LLVM and Codegen type synonyms allow us to emit module definitions and basic
 -- block instructions at the top level without being forced to pass explicit
@@ -113,8 +117,13 @@ codegenSexpr (TyFloat, SFliteral f) = L.double f
 codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
 codegenSexpr (TyChar, SCharLit c) =
   pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
-codegenSexpr (Pointer TyChar, SStrLit s) =
-  L.globalStringPtr (cs s) (mkName (cs s))
+codegenSexpr (Pointer TyChar, SStrLit s) = do
+  -- Generate a new unique global variable for every string literal we see
+  count <- gets stringCount
+  let nm = mkName (cs (".str" ++ show count))
+  modify $ \env -> env { stringCount = count + 1 }
+  L.globalStringPtr (cs s) nm
+
 codegenSexpr (t, SNull) =
   L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
 codegenSexpr (TyInt, SSizeof t      ) = L.int32 =<< fromIntegral <$> sizeof t
@@ -230,29 +239,11 @@ codegenSexpr (t, SUnop op e) = do
       _      -> error "Internal error - semant failed"
 
 codegenSexpr (_, SCall fun es) = do
-  intFormatStr   <- gets ((M.! "_intFmt") . operands)
-  floatFormatStr <- gets ((M.! "_floatFmt") . operands)
-  strFormatStr   <- gets ((M.! "_strFmt") . operands)
-  printf         <- gets ((M.! "printf") . operands)
-  case fun of
-    "print" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(intFormatStr, []), (e', [])]
-    "printf" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(floatFormatStr, []), (e', [])]
-    "prints" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(strFormatStr, []), (e', [])]
-    "printb" -> do
-      e' <- codegenSexpr (head es)
-      L.call printf [(intFormatStr, []), (e', [])]
-    _ -> do
-      es' <- forM es $ \e -> do
-        e' <- codegenSexpr e
-        return (e', [])
-      f <- gets ((M.! fun) . operands)
-      L.call f es'
+  es' <- forM es $ \e -> do
+    e' <- codegenSexpr e
+    return (e', [])
+  f <- gets ((M.! fun) . operands)
+  L.call f es'
 
 codegenSexpr (_, SCast t e) = do
   e' <- codegenSexpr e
@@ -328,7 +319,7 @@ codegenFunc f = mdo
   registerOperand (sname f) fun
   -- We wrap generating the function inside of the `locally` combinator in
   -- order to prevent local variables from escaping the scope of the function
-  fun <- locally $ do
+  fun <- locally' $ do
     retty <- ltypeOfTyp (styp f)
     let name = mkName (cs $ sname f)
         mkParam (Bind t n) =
@@ -357,6 +348,15 @@ codegenFunc f = mdo
     args <- mapM mkParam (sformals f)
     L.function name args retty body
   return ()
+  where
+    -- Slightly different version of the locally combinator
+    -- In this case we actually want to persist global string variables across
+    -- different functions.
+    locally' codegen = do
+      ops <- gets operands
+      result <- codegen
+      modify $ \e -> e { operands = ops }
+      return result
 
 emitBuiltIns :: LLVM ()
 emitBuiltIns = do
@@ -364,13 +364,6 @@ emitBuiltIns = do
   printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
   registerOperand "printf"   printf
   registerOperand "printbig" printbig
-  intFmt   <- L.globalStringPtr "%d\n" $ mkName "_intFmt"
-  floatFmt <- L.globalStringPtr "%g\n" $ mkName "_floatFmt"
-  strFmt   <- L.globalStringPtr "%s\n" $ mkName "_strFmt"
-  registerOperand "_intFmt"   intFmt
-  registerOperand "_floatFmt" floatFmt
-  registerOperand "_strFmt"   strFmt
-
   llvmPow <- L.extern (mkName "llvm.pow.f64")
                       [AST.double, AST.double]
                       AST.double
@@ -398,7 +391,7 @@ emitTypeDef (Struct name _) = do
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
-  flip evalState (Env {operands = M.empty, structs })
+  flip evalState (Env {operands = M.empty, structs = structs, stringCount = 0})
     $ L.buildModuleT "microc"
     $ do
         emitBuiltIns

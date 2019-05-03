@@ -1,6 +1,6 @@
 int main()
 {
-  if (false) print(42); else print(8);
-  print(17);
+  if (false) printf("%d\n", 42); else printf("%d\n", 8);
+  printf("%d\n", 17);
   return 0;
 }

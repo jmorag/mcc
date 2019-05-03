@@ -68,10 +68,7 @@ checkFields s@(Struct name fields) = do
 builtIns :: Funcs
 builtIns = M.fromList $ map
   toFunc
-  [ ("print"   , [TyInt]         , TyVoid)
-  , ("printb"  , [TyBool]        , TyVoid)
-  , ("printf"  , [TyFloat]       , TyVoid)
-  , ("prints"  , [Pointer TyChar], TyVoid)
+  [ ("printf"  , [Pointer TyChar], TyVoid)
   , ("printbig", [TyInt]         , TyVoid)
   , ("malloc"  , [TyInt]         , Pointer TyVoid)
   , ("free"    , [Pointer TyVoid], TyVoid)
@@ -206,6 +203,13 @@ checkExpr expr
               ty
               (Expr expr)
 
+        Call "printf" es -> do
+          es' <- mapM checkExpr es
+          let (formatStr, _) = head es'
+          unless (formatStr == Pointer TyChar)
+            $ throwError (TypeError [Pointer TyChar] formatStr (Expr expr))
+          return (TyVoid, SCall "printf" es')
+
         Call s es -> do
           funcs <- gets funcs
           case M.lookup s funcs of
@@ -219,7 +223,7 @@ checkExpr expr
                                                                     nActuals
                                                                     expr
               -- Check that types of arguments match
-              forM_ (zip (map fst es') (map (\(Bind ty _) -> ty) (formals f)))
+              forM_ (zip (map fst es') (map bindType (formals f)))
                 $ \(callSite, defSite) ->
                     unless (callSite == defSite) $ throwError $ TypeError
                       { expected = [defSite]

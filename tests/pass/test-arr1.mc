@@ -4,7 +4,7 @@ int main() {
     p = (int *)malloc(sizeof(int) * 10);
     for (i = 0; i < 10; i = i + 1) {
         *(p + i) = i;
-        print(*(p + i));
+        printf("%d\n", *(p + i));
     }
     free((void *)p);
     return 0;

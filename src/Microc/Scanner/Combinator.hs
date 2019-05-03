@@ -8,6 +8,7 @@ import qualified Text.Megaparsec.Char.Lexer    as L
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as T
 import           Control.Monad                  ( void )
+import           Data.String.Conversions
 
 type Parser = Parsec Void Text
 
@@ -67,15 +68,18 @@ rws =
   , "sizeof"
   ]
 
--- Handle escaping later
 strlit :: Parser Text
-strlit = dquotes $ takeWhileP Nothing (/= '"')
+strlit = do
+  content <- dquotes $ takeWhileP Nothing (/= '"')
+  -- Hijack haskell's string lexer so we don't have to deal with escaping
+  pure $ T.pack (read ('"' : cs content ++ "\""))
 
 charlit :: Parser Int
-charlit = squotes $ (ord <$> satisfy (`notElem` special)) <|> (single '\\' >> int)
-  where
-    special :: String
-    special = "\\'"
+charlit =
+  squotes $ (ord <$> satisfy (`notElem` special)) <|> (single '\\' >> int)
+ where
+  special :: String
+  special = "\\'"
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)

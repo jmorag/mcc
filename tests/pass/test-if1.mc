@@ -1,6 +1,6 @@
 int main()
 {
-  if (true) print(42);
-  print(17);
+  if (true) printf("%d\n", 42);
+  printf("%d\n", 17);
   return 0;
 }

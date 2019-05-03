@@ -1,4 +1,4 @@
 int main() {
-    printf(2.0 ** 4.0);
+    printf("%g\n", 2.0 ** 4.0);
     return 0;
 }

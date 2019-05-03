@@ -6,11 +6,11 @@ int fib(int x)
 
 int main()
 {
-  print(fib(0));
-  print(fib(1));
-  print(fib(2));
-  print(fib(3));
-  print(fib(4));
-  print(fib(5));
+  printf("%d\n", fib(0));
+  printf("%d\n", fib(1));
+  printf("%d\n", fib(2));
+  printf("%d\n", fib(3));
+  printf("%d\n", fib(4));
+  printf("%d\n", fib(5));
   return 0;
 }

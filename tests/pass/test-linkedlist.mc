@@ -12,6 +12,7 @@ struct List *cons(int x, struct List *tail) {
   return head;
 }
 
+// This one is hard to write even with a real compiler...
 struct List *reverse(struct List *list) {
   struct List *this;
   struct List *next;
@@ -37,12 +38,12 @@ int main() {
   }
   l2 = l;
   while (l2 != NULL) {
-    print(l2->val);
+    printf("%d\n", l2->val);
     l2 = l2->next;
   }
   l2 = reverse(l);
   while (l2 != NULL) {
-    print(l2->val);
+    printf("%d\n", l2->val);
     l2 = l2->next;
   }
   return 0;

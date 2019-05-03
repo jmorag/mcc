@@ -1,6 +1,6 @@
 void foo(int a)
 {
-  print(a + 3);
+  printf("%d\n", a + 3);
   return;
 }
 

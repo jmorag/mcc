@@ -3,12 +3,12 @@ int b;
 
 void printa()
 {
-  print(a);
+  printf("%d\n", a);
 }
 
 void printbb()
 {
-  print(b);
+  printf("%d\n", b);
 }
 
 void incab()

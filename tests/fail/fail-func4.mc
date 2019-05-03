@@ -2,7 +2,7 @@ void foo() {}
 
 void bar() {}
 
-void print() {} /* Should not be able to define print */
+void printf() {} /* Should not be able to define printf */
 
 void baz() {}
 

@@ -1,18 +1,18 @@
 int main()
 {
-  printb(true);
-  printb(false);
-  printb(true && true);
-  printb(true && false);
-  printb(false && true);
-  printb(false && false);
-  printb(true || true);
-  printb(true || false);
-  printb(false || true);
-  printb(false || false);
-  printb(!false);
-  printb(!true);
-  print(-10);
-  print(--42);
+  printf("%d\n", true);
+  printf("%d\n", false);
+  printf("%d\n", true && true);
+  printf("%d\n", true && false);
+  printf("%d\n", false && true);
+  printf("%d\n", false && false);
+  printf("%d\n", true || true);
+  printf("%d\n", true || false);
+  printf("%d\n", false || true);
+  printf("%d\n", false || false);
+  printf("%d\n", !false);
+  printf("%d\n", !true);
+  printf("%d\n", -10);
+  printf("%d\n", --42);
   return 0;
 }

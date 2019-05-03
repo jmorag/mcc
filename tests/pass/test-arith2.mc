@@ -1,5 +1,5 @@
 int main()
 {
-  print(1 + 2 * 3 + 4);
+  printf("%d\n", 1 + 2 * 3 + 4);
   return 0;
 }

@@ -3,7 +3,7 @@ void foo(bool i)
   int i; /* Should hide the formal i */
 
   i = 42;
-  print(i + i);
+  printf("%d\n", i + i);
 }
 
 int main()

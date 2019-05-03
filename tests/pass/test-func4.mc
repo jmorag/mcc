@@ -9,6 +9,6 @@ int main()
 {
   int d;
   d = add(52, 10);
-  print(d);
+  printf("%d\n", d);
   return 0;
 }
