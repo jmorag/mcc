@@ -32,10 +32,6 @@ dependencies:
 
 default-extensions: OverloadedStrings, LambdaCase
 
-build-tools:
-  - alex
-  - happy
-
 library:
   source-dirs: src
 

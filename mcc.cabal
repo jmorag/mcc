@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.31.1.
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9a536f28a1eef4615f1357e7a65c6e22333cff22aae460c9806661f1f0fbfd41
+-- hash: 7a46b48ab7b181927a291ad0d2015d84c5208dc794da43c6e6d9f9fdefe21dc4
 
 name:           mcc
 version:        0.1.0.0
@@ -13,6 +13,7 @@ category:       Compilers/Interpreters
 homepage:       https://github.com/jmorag/mcc#readme
 bug-reports:    https://github.com/jmorag/mcc/issues
 author:         Joseph Morag
+maintainer:     Joseph Morag
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -51,10 +52,10 @@ library
     , containers
     , directory
     , filepath
-    , llvm-hs-pretty
-    , llvm-hs-pure
+    , llvm-hs-pretty >=0.9 && <1
+    , llvm-hs-pure >=9 && <10
     , megaparsec
-    , mtl >=2.2 && <=3
+    , mtl
     , parser-combinators
     , pretty-simple
     , prettyprinter
@@ -62,9 +63,6 @@ library
     , string-conversions
     , text
     , unix
-  build-tools:
-      alex
-    , happy
   default-language: Haskell2010
 
 executable mcc
@@ -82,11 +80,11 @@ executable mcc
     , containers
     , directory
     , filepath
-    , llvm-hs-pretty
-    , llvm-hs-pure
+    , llvm-hs-pretty >=0.9 && <1
+    , llvm-hs-pure >=9 && <10
     , mcc
     , megaparsec
-    , mtl >=2.2 && <=3
+    , mtl
     , optparse-applicative
     , parser-combinators
     , pretty-simple
@@ -95,9 +93,6 @@ executable mcc
     , string-conversions
     , text
     , unix
-  build-tools:
-      alex
-    , happy
   default-language: Haskell2010
 
 test-suite testall
@@ -116,11 +111,11 @@ test-suite testall
     , containers
     , directory
     , filepath
-    , llvm-hs-pretty
-    , llvm-hs-pure
+    , llvm-hs-pretty >=0.9 && <1
+    , llvm-hs-pure >=9 && <10
     , mcc
     , megaparsec
-    , mtl >=2.2 && <=3
+    , mtl
     , parser-combinators
     , pretty-simple
     , prettyprinter
@@ -131,9 +126,6 @@ test-suite testall
     , tasty-hunit
     , text
     , unix
-  build-tools:
-      alex
-    , happy
   default-language: Haskell2010
 
 benchmark bench
@@ -153,11 +145,11 @@ benchmark bench
     , criterion
     , directory
     , filepath
-    , llvm-hs-pretty
-    , llvm-hs-pure
+    , llvm-hs-pretty >=0.9 && <1
+    , llvm-hs-pure >=9 && <10
     , mcc
     , megaparsec
-    , mtl >=2.2 && <=3
+    , mtl
     , parser-combinators
     , pretty-simple
     , prettyprinter
@@ -166,7 +158,4 @@ benchmark bench
     , tasty-golden
     , text
     , unix
-  build-tools:
-      alex
-    , happy
   default-language: Haskell2010
