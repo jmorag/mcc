@@ -13,7 +13,7 @@ extra-source-files: README.md
 
 dependencies:
     - base >= 4.7 && < 5
-    - mtl >= 2.2 && <= 3
+    - mtl
     - array
     - containers
     - text
@@ -25,8 +25,9 @@ dependencies:
     - bytestring
     - prettyprinter
     - pretty-simple
-    - llvm-hs-pure
-    - llvm-hs-pretty
+    # - llvm-hs >= 9 && < 10
+    - llvm-hs-pure >= 9 && < 10
+    - llvm-hs-pretty >= 0.9 && < 1
     - megaparsec
     - parser-combinators
 
