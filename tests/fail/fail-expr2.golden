@@ -1,4 +1,4 @@
 Type error: expected one of [ void *
-, int
-, float ] but got bool. Error occured in statement:
+                            , int
+                            , float ] but got bool. Error occured in statement:
 b + a;

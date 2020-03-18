@@ -79,6 +79,8 @@ ltypeOfTyp = \case
   -- (void *) is invalid LLVM
   Pointer TyVoid -> pure $ AST.ptr AST.i8
   -- special case to handle recursively defined structures
+  -- TODO: add real cycle checking so that improperly defined
+  -- recursive types case the compiler to hang forever
   Pointer (TyStruct n) ->
     pure $ AST.ptr (AST.NamedTypeReference (mkName $ cs ("struct." <> n)))
   Pointer  t -> fmap AST.ptr (ltypeOfTyp t)
@@ -107,14 +109,14 @@ codegenLVal (SDeref e   ) = codegenSexpr e
 
 codegenLVal (SAccess e i) = do
   e'     <- codegenLVal e
-  zero   <- L.int32 0
-  offset <- L.int32 (fromIntegral i)
+  let zero   = L.int32 0
+      offset = L.int32 (fromIntegral i)
   L.gep e' [zero, offset]
 
 codegenSexpr :: SExpr -> Codegen AST.Operand
-codegenSexpr (TyInt  , SLiteral i ) = L.int32 (fromIntegral i)
-codegenSexpr (TyFloat, SFliteral f) = L.double f
-codegenSexpr (TyBool , SBoolLit b ) = L.bit (if b then 1 else 0)
+codegenSexpr (TyInt  , SLiteral i ) = pure $ L.int32 (fromIntegral i)
+codegenSexpr (TyFloat, SFliteral f) = pure $ L.double f
+codegenSexpr (TyBool , SBoolLit b ) = pure $ L.bit (if b then 1 else 0)
 codegenSexpr (TyChar, SCharLit c) =
   pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
 codegenSexpr (Pointer TyChar, SStrLit s) = do
@@ -124,13 +126,12 @@ codegenSexpr (Pointer TyChar, SStrLit s) = do
     Nothing -> do
       let nm = mkName (cs (".str" ++ show count))
       op <- L.globalStringPtr (cs s) nm
-      modify $ \env -> env { strings = (M.insert s op strs, count + 1) }
-      pure op
+      modify $ \env -> env { strings = (M.insert s (AST.ConstantOperand op) strs, count + 1) }
+      pure (AST.ConstantOperand op)
     Just op -> pure op
 
-codegenSexpr (t, SNull) =
-  L.inttoptr (AST.ConstantOperand $ C.Int 64 0) =<< ltypeOfTyp t
-codegenSexpr (TyInt, SSizeof t      ) = L.int32 =<< fromIntegral <$> sizeof t
+codegenSexpr (t, SNull) = L.inttoptr (L.int64 0) =<< ltypeOfTyp t
+codegenSexpr (TyInt, SSizeof t) = L.int32 . fromIntegral <$> sizeof t
 
 -- All LVals are already memory addresses.
 codegenSexpr (_    , SAddr e        ) = codegenLVal e
@@ -159,12 +160,12 @@ codegenSexpr (t, SBinop op lhs rhs) = do
           lhs'' <- L.ptrtoint lhs' AST.i64
           rhs'' <- L.ptrtoint rhs' AST.i64
           diff  <- L.sub lhs'' rhs''
-          width <- L.int64 . fromIntegral =<< sizeof typ
+          width <- L.int64 . fromIntegral <$> sizeof typ
           L.sdiv diff width
         _ -> error "Internal error - semant failed"
       TyFloat   -> L.fsub lhs' rhs'
       Pointer _ -> do
-        zero <- L.int64 0
+        let zero = L.int64 0
         case (fst lhs, fst rhs) of
           (Pointer _, TyInt) ->
             L.zext rhs' AST.i64 >>= L.sub zero >>= L.gep lhs' . (: [])
@@ -235,11 +236,11 @@ codegenSexpr (t, SUnop op e) = do
   e' <- codegenSexpr e
   case op of
     Neg -> case t of
-      TyInt   -> L.int32 0 >>= flip L.sub e'
-      TyFloat -> L.double 0 >>= flip L.fsub e'
+      TyInt   -> L.sub (L.int32 0) e'
+      TyFloat -> L.fsub (L.double 0) e'
       _       -> error "Internal error - semant failed"
     Not -> case t of
-      TyBool -> L.bit 1 >>= L.xor e'
+      TyBool -> L.xor e' (L.bit 1)
       _      -> error "Internal error - semant failed"
 
 codegenSexpr (_, SCall fun es) = do
@@ -253,7 +254,7 @@ codegenSexpr (_, SCast t e) = do
   e' <- codegenSexpr e
   L.bitcast e' =<< ltypeOfTyp t
 
-codegenSexpr (_, SNoexpr) = L.int32 0
+codegenSexpr (_, SNoexpr) = pure $ L.int32 0
 
 -- Final catchall
 codegenSexpr sx =
