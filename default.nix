@@ -4,11 +4,13 @@ let
     packageOverrides = pkgs: rec {
       haskell = pkgs.haskell // {
         packages = pkgs.haskell.packages // {
-          ghc883 = pkgs.haskell.packages."${compilerVersion}".override {
-            overrides = self: super: {
-              llvm-hs-pretty = pkgs.haskell.lib.dontCheck super.llvm-hs-pretty;
+          "${compilerVersion}" =
+            pkgs.haskell.packages."${compilerVersion}".override {
+              overrides = self: super: {
+                llvm-hs-pretty =
+                  pkgs.haskell.lib.dontCheck super.llvm-hs-pretty;
+              };
             };
-          };
         };
       };
     };
