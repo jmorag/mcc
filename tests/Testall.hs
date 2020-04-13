@@ -37,32 +37,24 @@ main :: IO ()
 main = defaultMain =<< goldenTests
 
 -- | All of the test cases
--- General structure taken from 
+-- General structure taken from
 -- https://ro-che.info/articles/2017-12-04-golden-tests
 goldenTests :: IO TestTree
 goldenTests = testGroup "all" <$> sequence [passing, failing, parsing]
 
 parsing :: IO TestTree
 parsing = do
-  mcFiles   <- findByExtension [".mc"] "tests/pass"
-  testGroup "parsing" <$> forM mcFiles
-    (\mcFile -> do
-      input <- T.readFile mcFile
-      case runParser programP mcFile input of
-        Right ast -> return . testCase mcFile $ assertEqual
-          mcFile
-          ast
-          (parse . alexScanTokens $ cs input)
-        Left _err -> do
-          failedParse <-
-            try . evaluate . parse . alexScanTokens $ cs input :: IO
-              (Either IOError Program)
-          return . testCase mcFile $ assertBool mcFile (isLeft failedParse)
-    )
- where
-  isLeft = \case
-    Left _ -> True
-    _      -> False
+  files <- concat <$> mapM (findByExtension [".mc"]) ["tests/pass", "tests/fail"]
+  fmap (testGroup "parsing") $ forM files $ \file -> do
+    input      <- T.readFile file
+    combinator <- pure $ runParser programP file input
+    generator  <-
+      try . evaluate . parse . alexScanTokens $ cs input :: IO
+        (Either IOError Program)
+    pure . testCase file $ case (combinator, generator) of
+      (Right ast, Right ast') -> assertEqual file ast ast'
+      (Left  _  , Left _    ) -> pure ()
+      _                       -> assertFailure file
 
 passing :: IO TestTree
 passing = do

@@ -76,10 +76,7 @@ strlit = do
 
 charlit :: Parser Int
 charlit =
-  squotes $ (ord <$> satisfy (`notElem` special)) <|> (single '\\' >> int)
- where
-  special :: String
-  special = "\\'"
+  squotes $ (ord <$> satisfy (`notElem` ['\\', '\''])) <|> (single '\\' >> int)
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)

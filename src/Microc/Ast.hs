@@ -39,7 +39,7 @@ data Bind = Bind { bindType :: Type, bindName :: Text } deriving (Show, Eq)
 
 data Expr = Literal Int
           | StrLit Text
-          | CharLit Int
+          | CharLit Int -- ^ Chars get lowered to ints during codegen
           | Fliteral Double
           | BoolLit Bool
           | Null

@@ -45,7 +45,7 @@ opTable =
   infixL' op sym = InfixL $ Binop op <$ operator sym
   infixR op sym = InfixR $ Binop op <$ symbol sym
   operator sym = lexeme $ try (symbol sym <* notFollowedBy opChar)
-  opChar = oneOf chars where chars = "!#$%&*+./<=>?@\\^|-~" :: String
+  opChar = oneOf ("!#$%&*+./<=>?@\\^|-~" :: String)
 
 
 termP :: Parser Expr
