@@ -2,6 +2,8 @@ let
   compilerVersion = "ghc883";
   config = {
     packageOverrides = pkgs: rec {
+      llvm_9 = (pkgs.llvm_9.override { debugVersion = true; }).overrideAttrs
+        (_: { doCheck = false; });
       haskell = pkgs.haskell // {
         packages = pkgs.haskell.packages // {
           "${compilerVersion}" =
@@ -9,6 +11,9 @@ let
               overrides = self: super: {
                 llvm-hs-pretty =
                   pkgs.haskell.lib.dontCheck super.llvm-hs-pretty;
+                llvm-hs = super.callHackage "llvm-hs" "9.0.1" {
+                  llvm-config = pkgs.llvm_9;
+                };
               };
             };
         };
