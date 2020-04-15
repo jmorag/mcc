@@ -184,23 +184,19 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       _       -> error "Internal error - semant failed"
     -- We implement int ** int directly in llvm
     Power -> mdo
-      start <- L.currentBlock
-      acc <- L.alloca AST.i32 Nothing 0 `L.named` "acc"
-      expt <- L.alloca AST.i32 Nothing 0 `L.named` "expt"
-      L.store acc 0 (L.int32 1)
-      L.store expt 0 rhs'
+      enclosing <- L.currentBlock
       L.br loop
       loop <- L.block `L.named` "loop_pow"
-      done <- L.load expt 0 >>= \expt' -> L.icmp IP.EQ expt' (L.int32 0)
+      acc <- L.phi [(L.int32 1, enclosing), (nextAcc, continueBlock)] `L.named` "acc"
+      expt <- L.phi [(rhs', enclosing), (nextExpt, continueBlock)] `L.named` "expt"
+      done <- L.icmp IP.EQ expt (L.int32 0)
       L.condBr done doneBlock continueBlock
       continueBlock <- L.block `L.named` "continue"
-      acc' <- L.load acc 0
-      L.mul acc' lhs' >>= \val -> L.store acc 0 val
-      expt' <- L.load expt 0
-      L.sub expt' (L.int32 1) >>= \val -> L.store expt 0 val
+      nextAcc <- L.mul acc lhs' `L.named` "next_acc"
+      nextExpt <- L.sub expt (L.int32 1) `L.named` "next_expt"
       L.br loop
       doneBlock <- L.block `L.named` "done"
-      L.load acc 0
+      pure acc
 
     -- Only relational operators defined on chars, not arithmetic
     Equal -> case fst lhs of
