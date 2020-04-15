@@ -88,7 +88,7 @@ ltypeOfTyp = \case
     fields <- getFields n
     typs   <- mapM (ltypeOfTyp . bindType) fields
     -- Packed structs aren't great for performance but very easy to code for now
-    pure $ AST.StructureType {AST.isPacked = True, AST.elementTypes = typs}
+    pure $ AST.StructureType { AST.isPacked = True, AST.elementTypes = typs }
 
 charStar :: AST.Type
 charStar = AST.ptr AST.i8
@@ -108,7 +108,7 @@ codegenLVal (SId    name) = gets ((M.! name) . operands)
 codegenLVal (SDeref e   ) = codegenSexpr e
 
 codegenLVal (SAccess e i) = do
-  e'     <- codegenLVal e
+  e' <- codegenLVal e
   let zero   = L.int32 0
       offset = L.int32 (fromIntegral i)
   L.gep e' [zero, offset]
@@ -126,12 +126,13 @@ codegenSexpr (Pointer TyChar, SStrLit s) = do
     Nothing -> do
       let nm = mkName (cs (".str" ++ show count))
       op <- L.globalStringPtr (cs s) nm
-      modify $ \env -> env { strings = (M.insert s (AST.ConstantOperand op) strs, count + 1) }
+      modify $ \env ->
+        env { strings = (M.insert s (AST.ConstantOperand op) strs, count + 1) }
       pure (AST.ConstantOperand op)
     Just op -> pure op
 
-codegenSexpr (t, SNull) = L.inttoptr (L.int64 0) =<< ltypeOfTyp t
-codegenSexpr (TyInt, SSizeof t) = L.int32 . fromIntegral <$> sizeof t
+codegenSexpr (t    , SNull          ) = L.inttoptr (L.int64 0) =<< ltypeOfTyp t
+codegenSexpr (TyInt, SSizeof t      ) = L.int32 . fromIntegral <$> sizeof t
 
 -- All LVals are already memory addresses.
 codegenSexpr (_    , SAddr e        ) = codegenLVal e
@@ -181,8 +182,26 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       TyInt   -> L.sdiv lhs' rhs'
       TyFloat -> L.fdiv lhs' rhs'
       _       -> error "Internal error - semant failed"
-    Power ->
-      error "Internal error - Power should have been eliminated in semant"
+    -- We implement int ** int directly in llvm
+    Power -> mdo
+      start <- L.currentBlock
+      acc <- L.alloca AST.i32 Nothing 0 `L.named` "acc"
+      expt <- L.alloca AST.i32 Nothing 0 `L.named` "expt"
+      L.store acc 0 (L.int32 1)
+      L.store expt 0 rhs'
+      L.br loop
+      loop <- L.block `L.named` "loop_pow"
+      done <- L.load expt 0 >>= \expt' -> L.icmp IP.EQ expt' (L.int32 0)
+      L.condBr done doneBlock continueBlock
+      continueBlock <- L.block `L.named` "continue"
+      acc' <- L.load acc 0
+      L.mul acc' lhs' >>= \val -> L.store acc 0 val
+      expt' <- L.load expt 0
+      L.sub expt' (L.int32 1) >>= \val -> L.store expt 0 val
+      L.br loop
+      doneBlock <- L.block `L.named` "done"
+      L.load acc 0
+
     -- Only relational operators defined on chars, not arithmetic
     Equal -> case fst lhs of
       TyInt     -> L.icmp IP.EQ lhs' rhs'
@@ -250,9 +269,14 @@ codegenSexpr (_, SCall fun es) = do
   f <- gets ((M.! fun) . operands)
   L.call f es'
 
-codegenSexpr (_, SCast t e) = do
+codegenSexpr (_, SCast t' e@(t, _)) = do
   e' <- codegenSexpr e
-  L.bitcast e' =<< ltypeOfTyp t
+  case (t', t) of
+    (Pointer _, Pointer _) -> L.bitcast e' =<< ltypeOfTyp t'
+    (TyFloat, TyInt) -> L.sitofp e' =<< ltypeOfTyp t'
+    _ -> error $ "Internal error - semant failed. Invalid sexpr " <> show
+      (t', SCast t e)
+
 
 codegenSexpr (_, SNoexpr) = pure $ L.int32 0
 
@@ -369,10 +393,11 @@ emitBuiltIns = do
   printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
   registerOperand "printf"   printf
   registerOperand "printbig" printbig
-  llvmPow <- L.extern (mkName "llvm.pow.f64")
-                      [AST.double, AST.double]
-                      AST.double
+  llvmPow <- L.extern (mkName "llvm.pow.f64") [AST.double, AST.double] AST.double
   registerOperand "llvm.pow" llvmPow
+
+  llvmPowi <- L.extern (mkName "llvm.powi.i32") [AST.double, AST.i32] AST.double
+  registerOperand "llvm.powi" llvmPowi
 
   malloc <- L.extern (mkName "malloc") [AST.i32] (AST.ptr AST.i8)
   registerOperand "malloc" malloc
@@ -387,8 +412,7 @@ codegenGlobal (Bind t n) = do
   var <- L.global name typ initVal
   registerOperand n var
 
-emitTypeDef
-  :: (MonadState Env m, L.MonadModuleBuilder m) => Struct -> m AST.Type
+emitTypeDef :: (MonadState Env m, L.MonadModuleBuilder m) => Struct -> m AST.Type
 emitTypeDef (Struct name _) = do
   typ <- ltypeOfTyp (TyStruct name)
   L.typedef (mkName (cs ("struct." <> name))) (Just typ)
@@ -397,7 +421,7 @@ emitTypeDef (Struct name _) = do
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
   flip evalState
-       (Env {operands = M.empty, structs = structs, strings = (M.empty, 0)})
+       (Env { operands = M.empty, structs = structs, strings = (M.empty, 0) })
     $ L.buildModuleT "microc"
     $ do
         emitBuiltIns

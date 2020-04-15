@@ -54,7 +54,7 @@ instance Pretty SemantError where
       "Type error: expected one of" <+> pretty expected <+> "but got"
       <+> pretty got <> ". Error occured in statement:" <> hardline <> pretty stmt
     CastError to from stmt ->
-      "Cast error: can only cast between pointers, not from" <+> pretty from <+> "to" <+> pretty to <> ". Error occured in statement:" <> hardline <> pretty stmt
+      "Cast error: can only cast between pointers, from ints to floats, or between pointers and ints, not from" <+> pretty from <+> "to" <+> pretty to <> ". Error occured in statement:" <> hardline <> pretty stmt
 
 
     ArgError nExpected nGot callSite ->

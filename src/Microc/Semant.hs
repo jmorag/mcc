@@ -133,11 +133,13 @@ checkExpr expr = case expr of
       BitOr  -> assertSym >> checkArith
       And    -> assertSym >> checkBool
       Or     -> assertSym >> checkBool
-      -- Power operator no longer exists in Sast
-      Power  -> do
-        assertSym
-        unless (t1 == TyFloat) (throwError $ TypeError [TyFloat] t1 (Expr expr))
-        pure (TyFloat, SCall "llvm.pow" [lhs', rhs'])
+      Power  -> case (t1, t2) of
+        (TyFloat, TyFloat) -> pure (TyFloat, SCall "llvm.pow" [lhs', rhs'])
+        (TyFloat, TyInt  ) -> pure (TyFloat, SCall "llvm.powi" [lhs', rhs'])
+        -- Implement this case directly in llvm
+        (TyInt, TyInt) -> pure (TyInt, SBinop Power lhs' rhs')
+        _              -> throwError $ TypeError [TyFloat, TyInt] t1 (Expr expr)
+
 
       relational -> case (snd lhs', snd rhs') of
         (SNull, _    ) -> checkExpr (Binop relational (Cast t1 lhs) rhs)
@@ -203,6 +205,7 @@ checkExpr expr = case expr of
     case (t, t') of
       (Pointer _, Pointer _) -> pure (t, SCast t e')
       (Pointer _, TyInt    ) -> pure (t, SCast t e')
+      (TyFloat  , TyInt    ) -> pure (t, SCast t e')
       _                      -> throwError $ CastError t t' (Expr expr)
 
   Access e field -> do
