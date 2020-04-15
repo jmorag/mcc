@@ -33,8 +33,7 @@ data SStatement =
   | SBlock [SStatement]
   | SReturn SExpr
   | SIf SExpr SStatement SStatement
-  | SFor SExpr SExpr SExpr SStatement
-  | SWhile SExpr SStatement
+  | SDoWhile SExpr SStatement
   deriving (Show, Eq)
 
 data SFunction = SFunction

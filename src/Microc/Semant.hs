@@ -137,8 +137,8 @@ checkExpr expr = case expr of
         (TyFloat, TyFloat) -> pure (TyFloat, SCall "llvm.pow" [lhs', rhs'])
         (TyFloat, TyInt  ) -> pure (TyFloat, SCall "llvm.powi" [lhs', rhs'])
         -- Implement this case directly in llvm
-        (TyInt, TyInt) -> pure (TyInt, SBinop Power lhs' rhs')
-        _              -> throwError $ TypeError [TyFloat, TyInt] t1 (Expr expr)
+        (TyInt  , TyInt  ) -> pure (TyInt, SBinop Power lhs' rhs')
+        _                  -> throwError $ TypeError [TyFloat, TyInt] t1 (Expr expr)
 
 
       relational -> case (snd lhs', snd rhs') of
@@ -260,18 +260,22 @@ checkStatement stmt = case stmt of
     unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
     SIf pred' <$> checkStatement cons <*> checkStatement alt
 
+  While cond action -> do
+    cond'@(ty, _) <- checkExpr cond
+    unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
+    action' <- checkStatement action
+    pure $ SIf cond' (SDoWhile cond' action') (SBlock [])
+
   For init cond inc action -> do
     cond'@(ty, _) <- checkExpr cond
     unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
     init'   <- checkExpr init
     inc'    <- checkExpr inc
     action' <- checkStatement action
-    pure $ SFor init' cond' inc' action'
-
-  While cond action -> do
-    cond'@(ty, _) <- checkExpr cond
-    unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
-    SWhile cond' <$> checkStatement action
+    pure $ SBlock
+      [ SExpr init'
+      , SIf cond' (SDoWhile cond' (SBlock [action', SExpr inc'])) (SBlock [])
+      ]
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr

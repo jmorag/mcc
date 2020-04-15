@@ -11,8 +11,7 @@ genCFG [] = Empty
 genCFG (s:ss) = case s of
     SReturn _ -> Seq True (genCFG ss)
     SIf _ cons alt -> Branch False (genCFG (cons : ss)) (genCFG (alt:ss))
-    SWhile _ stmt -> Seq False (genCFG (stmt:ss))
-    SFor  _ _ _ stmt -> Seq False (genCFG (stmt:ss))
+    SDoWhile _ stmt -> Seq False (genCFG (stmt:ss))
     SBlock stmts -> genCFG (stmts <> ss)
     _ -> Seq False (genCFG ss)
 

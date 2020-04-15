@@ -304,16 +304,12 @@ codegenStatement (SIf p cons alt) = mdo
   mergeBlock <- L.block `L.named` "merge"
   return ()
 
--- Implementing a do-while construct is actually easier than while, so we
--- implement while as `if p //enter do while// else leave`
-codegenStatement (SWhile p body) = mdo
-  -- check the condition the first time
-  bool <- codegenSexpr p
-  L.condBr bool whileBlock mergeBlock
+codegenStatement (SDoWhile p body) = mdo
+  L.br whileBlock
   whileBlock <- L.block `L.named` "while_body"
   do
     codegenStatement body
-    -- Make sure that there was no return inside of the block and then generate
+    -- Make sure that there was no return inside of the block, then generate
     -- the check on the condition and go back to the beginning
     check <- L.hasTerminator
     unless check $ do
@@ -321,13 +317,6 @@ codegenStatement (SWhile p body) = mdo
       L.condBr continue whileBlock mergeBlock
   mergeBlock <- L.block `L.named` "merge"
   return ()
-
--- Turn for loops into equivalent while loops
-codegenStatement (SFor e1 e2 e3 body) = codegenStatement newStatement
- where
-  newStatement = SBlock [SExpr e1, SWhile e2 body']
-  body'        = SBlock [body, SExpr e3]
-
 
 mkTerminator :: Codegen () -> Codegen ()
 mkTerminator instr = do
