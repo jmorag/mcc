@@ -200,13 +200,14 @@ checkExpr expr = case expr of
                 }
         pure (typ f, SCall s es')
 
-  Cast t e -> do
-    e'@(t', _) <- checkExpr e
-    case (t, t') of
-      (Pointer _, Pointer _) -> pure (t, SCast t e')
-      (Pointer _, TyInt    ) -> pure (t, SCast t e')
-      (TyFloat  , TyInt    ) -> pure (t, SCast t e')
-      _                      -> throwError $ CastError t t' (Expr expr)
+  Cast t' e -> do
+    e'@(t, _) <- checkExpr e
+    case (t', t) of
+      (Pointer _, Pointer _) -> pure (t', SCast t' e')
+      (Pointer _, TyInt    ) -> pure (t', SCast t' e')
+      (TyInt    , Pointer _) -> pure (t', SCast t' e')
+      (TyFloat  , TyInt    ) -> pure (t', SCast t' e')
+      _                      -> throwError $ CastError t' t (Expr expr)
 
   Access e field -> do
     fieldName <- case field of
@@ -214,7 +215,7 @@ checkExpr expr = case expr of
       _    -> throwError (AccessError field e)
 
     (t, e') <- checkExpr e
-    l       <- case e' of
+    lval    <- case e' of
       LVal l' -> pure l'
       _       -> throwError (AccessError e field)
     (Struct _ fields) <- case t of
@@ -229,19 +230,19 @@ checkExpr expr = case expr of
       Nothing -> throwError (AccessError e field)
       Just i  -> pure i
 
-    pure (bindType (fields !! f), LVal $ SAccess l f)
+    pure (bindType (fields !! f), LVal $ SAccess lval f)
 
   Assign lhs rhs -> do
     lhs'@(t1, _) <- checkExpr lhs
     rhs'@(t2, _) <- checkExpr rhs
-    let assertSym = unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
-
-    lval <- case snd lhs' of
+    lval         <- case snd lhs' of
       LVal e -> pure e
       _      -> throwError $ AssignmentError lhs rhs
     case snd rhs' of
       SNull -> checkExpr (Assign lhs (Cast t1 rhs))
-      _     -> (t2, SAssign lval rhs') <$ assertSym
+      _ -> do
+        unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
+        pure (t2, SAssign lval rhs')
  where
   isNumeric = \case
     TyInt     -> True

@@ -23,6 +23,7 @@ opTable =
     , unary (Unop Not) "!"
     , unary Deref      "*"
     , unary Addr       "&"
+    , Prefix (try $ Cast <$> (parens typeP))
     ]
   , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]
@@ -49,8 +50,7 @@ opTable =
 
 
 termP :: Parser Expr
-termP = try (Cast <$> parens typeP <*> exprP)
-    <|> parens exprP
+termP = parens exprP
     <|> Null <$ rword "NULL"
     <|> try (Fliteral <$> float)
     <|> Literal <$> int

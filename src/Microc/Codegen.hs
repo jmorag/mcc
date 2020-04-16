@@ -192,8 +192,8 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       done <- L.icmp IP.EQ expt (L.int32 0)
       L.condBr done doneBlock continueBlock
       continueBlock <- L.block `L.named` "continue"
-      nextAcc <- L.mul acc lhs' `L.named` "next_acc"
-      nextExpt <- L.sub expt (L.int32 1) `L.named` "next_expt"
+      nextAcc       <- L.mul acc lhs' `L.named` "next_acc"
+      nextExpt      <- L.sub expt (L.int32 1) `L.named` "next_expt"
       L.br loop
       doneBlock <- L.block `L.named` "done"
       pure acc
@@ -266,13 +266,17 @@ codegenSexpr (_, SCall fun es) = do
   L.call f es'
 
 codegenSexpr (_, SCast t' e@(t, _)) = do
-  e' <- codegenSexpr e
-  case (t', t) of
-    (Pointer _, Pointer _) -> L.bitcast e' =<< ltypeOfTyp t'
-    (TyFloat, TyInt) -> L.sitofp e' =<< ltypeOfTyp t'
-    _ -> error $ "Internal error - semant failed. Invalid sexpr " <> show
-      (t', SCast t e)
-
+  let
+    castOp = case (t', t) of
+      (Pointer _, Pointer _) -> L.bitcast
+      (Pointer _, TyInt    ) -> L.inttoptr
+      (TyInt    , Pointer _) -> L.ptrtoint
+      (TyFloat  , TyInt    ) -> L.sitofp
+      _ -> error $ "Internal error - semant failed. Invalid sexpr " <> show
+        (t', SCast t e)
+  e'       <- codegenSexpr e
+  llvmType <- ltypeOfTyp t'
+  castOp e' llvmType
 
 codegenSexpr (_, SNoexpr) = pure $ L.int32 0
 
