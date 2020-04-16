@@ -42,17 +42,14 @@ checkBinds kind loc binds = do
 
 checkFields :: Struct -> Semant Struct
 checkFields s@(Struct name fields) = do
-  fields' <- foldM
-    (\acc field@(Bind t name) -> case t of
-      TyVoid -> throwError $ IllegalBinding name Void StructField (S s)
-      _      -> if M.member name acc
-        then throwError (IllegalBinding name Duplicate StructField (S s))
-        else pure $ M.insert name field acc
-    )
-    M.empty
-    fields
+  fields' <- foldM addField M.empty fields
   pure $ Struct name (M.elems fields') -- this doesn't preserve ordering
-
+ where
+  addField acc field@(Bind t name) = case t of
+    TyVoid -> throwError $ IllegalBinding name Void StructField (S s)
+    _      -> if M.member name acc
+      then throwError (IllegalBinding name Duplicate StructField (S s))
+      else pure $ M.insert name field acc
 
 builtIns :: Funcs
 builtIns = M.fromList $ map
@@ -235,7 +232,7 @@ checkExpr expr = case expr of
       _      -> throwError $ AssignmentError lhs rhs
     case snd rhs' of
       SNull -> checkExpr (Assign lhs (Cast t1 rhs))
-      _ -> do
+      _     -> do
         unless (t1 == t2) $ throwError $ TypeError [t1] t2 (Expr expr)
         pure (t2, SAssign lval rhs')
  where
@@ -325,8 +322,7 @@ checkProgram (Program structs binds funcs) = evalState
   (runExceptT (checkProgram' (structs, binds, funcs)))
   baseEnv
  where
-  baseEnv =
-    Env { structs = [], vars = M.empty, funcs = builtIns }
+  baseEnv = Env { structs = [], vars = M.empty, funcs = builtIns }
 
   checkProgram' (structs, binds, funcs) = do
     structs' <- mapM checkFields structs
