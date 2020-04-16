@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Semant
   ( checkProgram
@@ -278,7 +279,7 @@ checkStatement func stmt = case stmt of
   Block sl -> do
     let flattened = flatten sl
     unless (nothingFollowsRet flattened) $ throwError (DeadCode stmt)
-    SBlock <$> mapM (checkStatement func) sl
+    SBlock <$> mapM (checkStatement func) flattened
    where
     flatten []             = []
     flatten (Block s : ss) = flatten (s ++ ss)
@@ -318,13 +319,12 @@ checkFunction func = do
     _ -> error "Internal error - block didn't become a block?"
 
 checkProgram :: Program -> Either SemantError SProgram
-checkProgram (Program structs binds funcs) = evalState
-  (runExceptT (checkProgram' (structs, binds, funcs)))
-  baseEnv
+checkProgram program = evalState (runExceptT (checkProgram' program)) baseEnv
  where
   baseEnv = Env { structs = [], vars = M.empty, funcs = builtIns }
 
-  checkProgram' (structs, binds, funcs) = do
+  checkProgram' :: Program -> Semant SProgram
+  checkProgram' (Program structs binds funcs) = do
     structs' <- mapM checkFields structs
     modify $ \e -> e { structs = structs' }
     globals <- checkBinds Global Toplevel binds

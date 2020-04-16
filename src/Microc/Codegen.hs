@@ -318,7 +318,7 @@ codegenStatement (SDoWhile p body) = mdo
     check <- L.hasTerminator
     unless check $ do
       continue <- codegenSexpr p
-      L.condBr continue whileBlock mergeBlock
+      mkTerminator $ L.condBr continue whileBlock mergeBlock
   mergeBlock <- L.block `L.named` "merge"
   return ()
 
