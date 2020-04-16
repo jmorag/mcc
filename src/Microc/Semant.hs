@@ -24,24 +24,19 @@ type Structs = [Struct]
 data Env = Env { vars     :: Vars
                , funcs    :: Funcs
                , structs  :: Structs
-               , thisFunc :: Function
                }
 
 type Semant = ExceptT SemantError (State Env)
 
-checkBinds :: VarKind -> [Bind] -> Semant [Bind]
-checkBinds kind binds = do
-  currentFunc <- case kind of
-    Global      -> pure Toplevel
-    StructField -> pure Toplevel -- we don't keep the current struct in semant
-    _           -> F <$> gets thisFunc
+checkBinds :: VarKind -> BindingLoc -> [Bind] -> Semant [Bind]
+checkBinds kind loc binds = do
   forM binds $ \case
-    Bind TyVoid name -> throwError $ IllegalBinding name Void kind currentFunc
+    Bind TyVoid name -> throwError $ IllegalBinding name Void kind loc
 
     Bind ty     name -> do
       vars <- gets vars
       when (M.member (name, kind) vars)
-        $ throwError (IllegalBinding name Duplicate kind currentFunc)
+        $ throwError (IllegalBinding name Duplicate kind loc)
       modify $ \env -> env { vars = M.insert (name, kind) ty vars }
       pure $ Bind ty name
 
@@ -252,19 +247,19 @@ checkExpr expr = case expr of
     _         -> False
 
 
-checkStatement :: Statement -> Semant SStatement
-checkStatement stmt = case stmt of
+checkStatement :: Function -> Statement -> Semant SStatement
+checkStatement func stmt = case stmt of
   Expr e           -> SExpr <$> checkExpr e
 
   If pred cons alt -> do
     pred'@(ty, _) <- checkExpr pred
     unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
-    SIf pred' <$> checkStatement cons <*> checkStatement alt
+    SIf pred' <$> checkStatement func cons <*> checkStatement func alt
 
   While cond action -> do
     cond'@(ty, _) <- checkExpr cond
     unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
-    action' <- checkStatement action
+    action' <- checkStatement func action
     pure $ SIf cond' (SDoWhile cond' action') (SBlock [])
 
   For init cond inc action -> do
@@ -272,7 +267,7 @@ checkStatement stmt = case stmt of
     unless (ty == TyBool) $ throwError $ TypeError [TyBool] ty stmt
     init'   <- checkExpr init
     inc'    <- checkExpr inc
-    action' <- checkStatement action
+    action' <- checkStatement func action
     pure $ SBlock
       [ SExpr init'
       , SIf cond' (SDoWhile cond' (SBlock [action', SExpr inc'])) (SBlock [])
@@ -280,14 +275,13 @@ checkStatement stmt = case stmt of
 
   Return expr -> do
     e@(ty, _) <- checkExpr expr
-    fun       <- gets thisFunc
-    unless (ty == typ fun) $ throwError $ TypeError [typ fun] ty stmt
+    unless (ty == typ func) $ throwError $ TypeError [typ func] ty stmt
     pure $ SReturn e
 
   Block sl -> do
     let flattened = flatten sl
     unless (nothingFollowsRet flattened) $ throwError (DeadCode stmt)
-    SBlock <$> mapM checkStatement sl
+    SBlock <$> mapM (checkStatement func) sl
    where
     flatten []             = []
     flatten (Block s : ss) = flatten (s ++ ss)
@@ -305,13 +299,13 @@ checkFunction func = do
   funcs <- gets funcs
   unless (M.notMember (name func) funcs) $ throwError $ Redeclaration (name func)
   -- add this func to symbol table
-  modify $ \env -> env { funcs = M.insert (name func) func funcs, thisFunc = func }
+  modify $ \env -> env { funcs = M.insert (name func) func funcs }
 
   (formals', locals', body') <- locally $ liftM3
     (,,)
-    (checkBinds Formal (formals func))
-    (checkBinds Local (locals func))
-    (checkStatement (Block $ body func))
+    (checkBinds Formal (F func) (formals func))
+    (checkBinds Local (F func) (locals func))
+    (checkStatement func (Block $ body func))
 
   case body' of
     SBlock body'' -> do
@@ -332,15 +326,12 @@ checkProgram (Program structs binds funcs) = evalState
   baseEnv
  where
   baseEnv =
-    Env { structs = [], vars = M.empty, funcs = builtIns, thisFunc = garbageFunc }
-
-  garbageFunc =
-    Function { typ = TyVoid, name = "", formals = [], locals = [], body = [] }
+    Env { structs = [], vars = M.empty, funcs = builtIns }
 
   checkProgram' (structs, binds, funcs) = do
     structs' <- mapM checkFields structs
     modify $ \e -> e { structs = structs' }
-    globals <- checkBinds Global binds
+    globals <- checkBinds Global Toplevel binds
     funcs'  <- mapM checkFunction funcs
     case find (\f -> sname f == "main") funcs' of
       Nothing -> throwError NoMain
