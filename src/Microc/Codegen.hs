@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -10,6 +11,7 @@ where
 import qualified LLVM.AST.IntegerPredicate     as IP
 import qualified LLVM.AST.FloatingPointPredicate
                                                as FP
+import           LLVM.AST                       ( Operand )
 import qualified LLVM.AST                      as AST
 import qualified LLVM.AST.Type                 as AST
 import qualified LLVM.AST.Constant             as C
@@ -26,6 +28,7 @@ import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Data.String                    ( fromString )
 
+import           Microc.Utils
 import           Microc.Sast
 import           Microc.Ast                     ( Type(..)
                                                 , Op(..)
@@ -42,9 +45,9 @@ import           Data.List                      ( find )
 import           Debug.Trace
 
 -- When using the IRBuilder, both functions and variables have the type Operand
-data Env = Env { operands :: M.Map Text AST.Operand
+data Env = Env { operands :: M.Map Text Operand
                , structs :: [ Struct ]
-               , strings :: M.Map Text AST.Operand
+               , strings :: M.Map Text Operand
                }
   deriving (Eq, Show)
 
@@ -54,7 +57,7 @@ data Env = Env { operands :: M.Map Text AST.Operand
 type LLVM = L.ModuleBuilderT (State Env)
 type Codegen = L.IRBuilderT LLVM
 
-registerOperand :: MonadState Env m => Text -> AST.Operand -> m ()
+registerOperand :: MonadState Env m => Text -> Operand -> m ()
 registerOperand name op =
   modify $ \env -> env { operands = M.insert name op (operands env) }
 
@@ -76,7 +79,7 @@ ltypeOfTyp = \case
   TyFloat        -> pure AST.double
   TyBool         -> pure AST.i1
   -- (void *) is invalid LLVM
-  Pointer TyVoid -> pure $ AST.ptr AST.i8
+  Pointer TyVoid -> pure $ charStar
   -- special case to handle recursively defined structures
   -- TODO: add real cycle checking so that improperly defined
   -- recursive types case the compiler to hang forever
@@ -100,9 +103,12 @@ sizeof = \case
   TyFloat    -> pure 8
   TyVoid     -> pure 0
   Pointer  _ -> pure 8
-  TyStruct n -> fmap sum $ mapM (sizeof . bindType) =<< getFields n
+  TyStruct n -> do
+    fields <- getFields n
+    sizes  <- mapM (sizeof . bindType) fields
+    pure (sum sizes)
 
-codegenLVal :: LValue -> Codegen AST.Operand
+codegenLVal :: LValue -> Codegen Operand
 codegenLVal (SId    name) = gets ((M.! name) . operands)
 codegenLVal (SDeref e   ) = codegenSexpr e
 
@@ -112,21 +118,19 @@ codegenLVal (SAccess e i) = do
       offset = L.int32 (fromIntegral i)
   L.gep e' [zero, offset]
 
-codegenSexpr :: SExpr -> Codegen AST.Operand
-codegenSexpr (TyInt  , SLiteral i ) = pure $ L.int32 (fromIntegral i)
-codegenSexpr (TyFloat, SFliteral f) = pure $ L.double f
-codegenSexpr (TyBool , SBoolLit b ) = pure $ L.bit (if b then 1 else 0)
-codegenSexpr (TyChar, SCharLit c) =
-  pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
-codegenSexpr (Pointer TyChar, SStrLit s) = do
+codegenSexpr :: SExpr -> Codegen Operand
+codegenSexpr (TyInt         , SLiteral i ) = pure $ L.int32 (fromIntegral i)
+codegenSexpr (TyFloat       , SFliteral f) = pure $ L.double f
+codegenSexpr (TyBool        , SBoolLit b ) = pure $ L.bit (if b then 1 else 0)
+codegenSexpr (TyChar        , SCharLit c ) = pure $ L.int8 (fromIntegral c)
+codegenSexpr (Pointer TyChar, SStrLit s  ) = do
   -- Generate a new unique global variable for every string literal we see
   strs <- gets strings
   case M.lookup s strs of
     Nothing -> do
-      let nm = mkName (cs (s <> ".str"))
+      let nm = mkName (show (M.size strs) <> ".str")
       op <- L.globalStringPtr (cs s) nm
-      modify $ \env ->
-        env { strings = M.insert s (AST.ConstantOperand op) strs }
+      modify $ \env -> env { strings = M.insert s (AST.ConstantOperand op) strs }
       pure (AST.ConstantOperand op)
     Just op -> pure op
 
@@ -145,34 +149,29 @@ codegenSexpr (t, SBinop op lhs rhs) = do
   lhs' <- codegenSexpr lhs
   rhs' <- codegenSexpr rhs
   case op of
-    Add -> case t of
-      TyInt     -> L.add lhs' rhs'
-      TyFloat   -> L.fadd lhs' rhs'
-      Pointer _ -> case (fst lhs, fst rhs) of
-        (Pointer _, TyInt    ) -> L.gep lhs' [rhs']
-        (TyInt    , Pointer _) -> L.gep rhs' [lhs']
-        _                      -> error "Internal error - semant failed"
-      _ -> error "Internal error - semant failed"
-    Sub -> case t of
-      TyInt -> case (fst lhs, fst rhs) of
-        (TyInt      , TyInt    ) -> L.sub lhs' rhs'
-        (Pointer typ, Pointer _) -> do
-          lhs'' <- L.ptrtoint lhs' AST.i64
-          rhs'' <- L.ptrtoint rhs' AST.i64
-          diff  <- L.sub lhs'' rhs''
-          width <- L.int64 . fromIntegral <$> sizeof typ
-          L.sdiv diff width
-        _ -> error "Internal error - semant failed"
-      TyFloat   -> L.fsub lhs' rhs'
-      Pointer _ -> do
-        let zero = L.int64 0
-        case (fst lhs, fst rhs) of
-          (Pointer _, TyInt) ->
-            L.zext rhs' AST.i64 >>= L.sub zero >>= L.gep lhs' . (: [])
-          (TyInt, Pointer _) ->
-            L.zext lhs' AST.i64 >>= L.sub zero >>= L.gep rhs' . (: [])
-          _ -> error "Internal error - semant failed"
-      _ -> error "Internal error - semant failed"
+    Add -> case (fst lhs, fst rhs) of
+      (Pointer _, TyInt    ) -> L.gep lhs' [rhs']
+      (TyInt    , Pointer _) -> L.gep rhs' [lhs']
+      (TyInt    , TyInt    ) -> L.add lhs' rhs'
+      (TyFloat  , TyFloat  ) -> L.fadd lhs' rhs'
+      _                      -> error "Internal error - semant failed"
+    Sub ->
+      let zero = L.int64 0
+      in  case (fst lhs, fst rhs) of
+            (Pointer typ, Pointer typ') -> if typ' /= typ
+              then error "Internal error - semant failed"
+              else do
+                lhs'' <- L.ptrtoint lhs' AST.i64
+                rhs'' <- L.ptrtoint rhs' AST.i64
+                diff  <- L.sub lhs'' rhs''
+                width <- L.int64 . fromIntegral <$> sizeof typ
+                L.sdiv diff width
+            (Pointer _, TyInt) -> do
+              rhs'' <- L.sub zero rhs'
+              L.gep lhs' [rhs'']
+            (TyInt  , TyInt  ) -> L.sub lhs' rhs'
+            (TyFloat, TyFloat) -> L.fsub lhs' rhs'
+            _                  -> error "Internal error - semant failed"
     Mult -> case t of
       TyInt   -> L.mul lhs' rhs'
       TyFloat -> L.fmul lhs' rhs'
@@ -258,24 +257,20 @@ codegenSexpr (t, SUnop op e) = do
       _      -> error "Internal error - semant failed"
 
 codegenSexpr (_, SCall fun es) = do
-  es' <- forM es $ \e -> do
-    e' <- codegenSexpr e
-    return (e', [])
-  f <- gets ((M.! fun) . operands)
+  es' <- mapM (fmap (, []) . codegenSexpr) es
+  f   <- gets ((M.! fun) . operands)
   L.call f es'
 
 codegenSexpr (_, SCast t' e@(t, _)) = do
-  let
-    castOp = case (t', t) of
-      (Pointer _, Pointer _) -> L.bitcast
-      (Pointer _, TyInt    ) -> L.inttoptr
-      (TyInt    , Pointer _) -> L.ptrtoint
-      (TyFloat  , TyInt    ) -> L.sitofp
-      _ -> error $ "Internal error - semant failed. Invalid sexpr " <> show
-        (t', SCast t e)
   e'       <- codegenSexpr e
   llvmType <- ltypeOfTyp t'
-  castOp e' llvmType
+  case (t', t) of
+    (Pointer _, Pointer _) -> L.bitcast e' llvmType
+    (Pointer _, TyInt    ) -> L.inttoptr e' llvmType
+    (TyInt    , Pointer _) -> L.ptrtoint e' llvmType
+    (TyFloat  , TyInt    ) -> L.sitofp e' llvmType
+    _ -> error $ "Internal error - semant failed. Invalid sexpr " <> show
+      (t', SCast t e)
 
 codegenSexpr (_, SNoexpr) = pure $ L.int32 0
 
@@ -289,7 +284,7 @@ codegenStatement (SExpr   e) = void $ codegenSexpr e
 
 codegenStatement (SReturn e) = case e of
   (TyVoid, SNoexpr) -> L.retVoid
-  _                 -> codegenSexpr e >>= L.ret
+  _                 -> L.ret =<< codegenSexpr e
 
 codegenStatement (SBlock ss     ) = mapM_ codegenStatement ss
 
@@ -312,12 +307,8 @@ codegenStatement (SDoWhile p body) = mdo
   whileBlock <- L.block `L.named` "while_body"
   do
     codegenStatement body
-    -- Make sure that there was no return inside of the block, then generate
-    -- the check on the condition and go back to the beginning
-    check <- L.hasTerminator
-    unless check $ do
-      continue <- codegenSexpr p
-      mkTerminator $ L.condBr continue whileBlock mergeBlock
+    continue <- codegenSexpr p
+    mkTerminator $ L.condBr continue whileBlock mergeBlock
   mergeBlock <- L.block `L.named` "merge"
   return ()
 
@@ -327,70 +318,59 @@ mkTerminator instr = do
   unless check instr
 
 -- | Generate a function and add both the function name and variable names to
--- the map. TODO document wtf is going on in here
+-- the map.
 codegenFunc :: SFunction -> LLVM ()
 codegenFunc f = mdo
   -- We need to forward reference the generated function and insert it into the
   -- environment _before_ generating its body in order to handle the
   -- possibility of the function calling itself recursively
-  registerOperand (sname f) fun
+  registerOperand (sname f) function
   -- We wrap generating the function inside of the `locally` combinator in
   -- order to prevent local variables from escaping the scope of the function
-  fun <- locally' $ do
+  (function, strs) <- locally $ do
     retty <- ltypeOfTyp (styp f)
-    let name = mkName (cs $ sname f)
-        mkParam (Bind t n) =
-          ltypeOfTyp t >>= \t' -> return (t', L.ParameterName (cs n))
-
-        -- Generate the body of the function:
-        body ops = do
-          let pairs = zip ops (sformals f)
-          _entry <- L.block `L.named` "entry"
-          -- Add the formal parameters to the map, allocate them on the stack,
-          -- and then emit the necessary store instructions
-          forM_ pairs $ \(op, Bind _ n) -> do
-            let ltype = typeOf op
-            addr <- L.alloca ltype Nothing 0
-            L.store addr 0 op
-            registerOperand n addr
-          -- Same for the locals, except we do not emit the store instruction for
-          -- them
-          forM_ (slocals f) $ \(Bind t n) -> do
-            ltype <- ltypeOfTyp t
-            addr  <- L.alloca ltype Nothing 0
-            registerOperand n addr
-          -- Evaluate the actual body of the function after making the necessary
-          -- allocations
-          codegenStatement (sbody f)
-    args <- mapM mkParam (sformals f)
-    L.function name args retty body
-  return ()
+    args  <- mapM mkParam (sformals f)
+    fun <- L.function name args retty genBody
+    strings' <- gets strings
+    pure (fun, strings')
+  modify $ \e -> e { strings = strs }
  where
-    -- Slightly different version of the locally combinator
-    -- In this case we actually want to persist global string variables across
-    -- different functions.
-  locally' codegen = do
-    ops    <- gets operands
-    result <- codegen
-    modify $ \e -> e { operands = ops }
-    return result
+  name = mkName (cs $ sname f)
+  mkParam (Bind t n) = (,) <$> ltypeOfTyp t <*> pure (L.ParameterName (cs n))
 
-emitBuiltIns :: LLVM ()
-emitBuiltIns = do
-  printbig <- L.extern (mkName "printbig") [AST.i32] AST.void
-  printf   <- L.externVarArgs (mkName "printf") [charStar] AST.i32
-  registerOperand "printf"   printf
-  registerOperand "printbig" printbig
-  llvmPow <- L.extern (mkName "llvm.pow.f64") [AST.double, AST.double] AST.double
-  registerOperand "llvm.pow" llvmPow
+  -- Generate the body of the function:
+  genBody :: [Operand] -> Codegen ()
+  genBody ops = do
+    _entry <- L.block `L.named` "entry"
+    -- Add the formal parameters to the map, allocate them on the stack,
+    -- and then emit the necessary store instructions
+    forM_ (zip ops (sformals f)) $ \(op, Bind _ n) -> do
+      addr <- L.alloca (typeOf op) Nothing 0
+      L.store addr 0 op
+      registerOperand n addr
+    -- Same for the locals, except we do not emit the store instruction for
+    -- them
+    forM_ (slocals f) $ \(Bind t n) -> do
+      ltype <- ltypeOfTyp t
+      addr  <- L.alloca ltype Nothing 0
+      registerOperand n addr
+    -- Evaluate the actual body of the function after making the necessary
+    -- allocations
+    codegenStatement (sbody f)
 
-  llvmPowi <- L.extern (mkName "llvm.powi.i32") [AST.double, AST.i32] AST.double
-  registerOperand "llvm.powi" llvmPowi
+emitBuiltIn :: (String, [AST.Type], AST.Type) -> LLVM ()
+emitBuiltIn (name, argtys, retty) = do
+  func <- L.extern (mkName name) argtys retty
+  registerOperand (cs name) func
 
-  malloc <- L.extern (mkName "malloc") [AST.i32] (AST.ptr AST.i8)
-  registerOperand "malloc" malloc
-  free <- L.extern (mkName "free") [AST.ptr AST.i8] AST.void
-  registerOperand "free" free
+builtIns :: [(String, [AST.Type], AST.Type)]
+builtIns =
+  [ ("printbig"     , [AST.i32]               , AST.void)
+  , ("llvm.pow.f64" , [AST.double, AST.double], AST.double)
+  , ("llvm.powi.i32", [AST.double, AST.i32]   , AST.double)
+  , ("malloc"       , [AST.i32]               , AST.ptr AST.i8)
+  , ("free"         , [AST.ptr AST.i8]        , AST.void)
+  ]
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do
@@ -400,7 +380,7 @@ codegenGlobal (Bind t n) = do
   var <- L.global name typ initVal
   registerOperand n var
 
-emitTypeDef :: (MonadState Env m, L.MonadModuleBuilder m) => Struct -> m AST.Type
+emitTypeDef :: Struct -> LLVM AST.Type
 emitTypeDef (Struct name _) = do
   typ <- ltypeOfTyp (TyStruct name)
   L.typedef (mkName (cs ("struct." <> name))) (Just typ)
@@ -408,11 +388,12 @@ emitTypeDef (Struct name _) = do
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
-  flip evalState
-       (Env { operands = M.empty, structs = structs, strings = M.empty })
+  flip evalState (Env { operands = M.empty, structs = structs, strings = M.empty })
     $ L.buildModuleT "microc"
     $ do
-        emitBuiltIns
+        printf <- L.externVarArgs (mkName "printf") [charStar] AST.i32
+        registerOperand "printf" printf
+        mapM_ emitBuiltIn builtIns
         mapM_ emitTypeDef   structs
         mapM_ codegenGlobal globals
         mapM_ codegenFunc   funcs
