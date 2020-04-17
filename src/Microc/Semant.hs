@@ -127,8 +127,8 @@ checkExpr expr = case expr of
       And    -> assertSym >> checkBool
       Or     -> assertSym >> checkBool
       Power  -> case (t1, t2) of
-        (TyFloat, TyFloat) -> pure (TyFloat, SCall "llvm.pow" [lhs', rhs'])
-        (TyFloat, TyInt  ) -> pure (TyFloat, SCall "llvm.powi" [lhs', rhs'])
+        (TyFloat, TyFloat) -> pure (TyFloat, SCall "llvm.pow.f64" [lhs', rhs'])
+        (TyFloat, TyInt  ) -> pure (TyFloat, SCall "llvm.powi.i32" [lhs', rhs'])
         -- Implement this case directly in llvm
         (TyInt  , TyInt  ) -> pure (TyInt, SBinop Power lhs' rhs')
         _                  -> throwError $ TypeError [TyFloat, TyInt] t1 (Expr expr)
