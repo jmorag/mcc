@@ -1,4 +1,3 @@
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -45,7 +44,7 @@ import           Debug.Trace
 -- When using the IRBuilder, both functions and variables have the type Operand
 data Env = Env { operands :: M.Map Text AST.Operand
                , structs :: [ Struct ]
-               , strings :: (M.Map Text AST.Operand, Int)
+               , strings :: M.Map Text AST.Operand
                }
   deriving (Eq, Show)
 
@@ -121,13 +120,13 @@ codegenSexpr (TyChar, SCharLit c) =
   pure $ AST.ConstantOperand (C.Int 8 (fromIntegral c))
 codegenSexpr (Pointer TyChar, SStrLit s) = do
   -- Generate a new unique global variable for every string literal we see
-  (strs, count) <- gets strings
+  strs <- gets strings
   case M.lookup s strs of
     Nothing -> do
-      let nm = mkName (cs (".str" ++ show count))
+      let nm = mkName (cs (s <> ".str"))
       op <- L.globalStringPtr (cs s) nm
       modify $ \env ->
-        env { strings = (M.insert s (AST.ConstantOperand op) strs, count + 1) }
+        env { strings = M.insert s (AST.ConstantOperand op) strs }
       pure (AST.ConstantOperand op)
     Just op -> pure op
 
@@ -410,7 +409,7 @@ emitTypeDef (Struct name _) = do
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
   flip evalState
-       (Env { operands = M.empty, structs = structs, strings = (M.empty, 0) })
+       (Env { operands = M.empty, structs = structs, strings = M.empty })
     $ L.buildModuleT "microc"
     $ do
         emitBuiltIns
