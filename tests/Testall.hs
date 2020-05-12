@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 module Main where
 
 import           Test.Tasty                     ( defaultMain
@@ -48,9 +49,7 @@ parsing = do
   fmap (testGroup "parsing") $ forM files $ \file -> do
     input      <- T.readFile file
     combinator <- pure $ runParser programP file input
-    generator  <-
-      try . evaluate . parse . alexScanTokens $ cs input :: IO
-        (Either IOError Program)
+    generator  <- try @IOError . evaluate . parse . alexScanTokens $ cs input
     pure . testCase file $ case (combinator, generator) of
       (Right ast, Right ast') -> assertEqual file ast ast'
       (Left  _  , Left _    ) -> pure ()

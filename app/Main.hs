@@ -17,14 +17,10 @@ data ParserType = Combinator | Generator
 data Options = Options { action :: Action, infile :: FilePath, parser :: ParserType }
 
 actionP :: Parser Action
-actionP =
-  flag' Ast (long "ast" <> short 'a' <> help "Pretty print the ast")
+actionP = flag' Ast (long "ast" <> short 'a' <> help "Pretty print the ast")
     <|> flag' Sast (long "sast" <> short 's' <> help "Pretty print the sast")
-    <|> flag'
-          LLVM
-          (long "llvm" <> short 'l' <> help "Pretty print the generated llvm")
-    <|> flag' Compile
-              (long "compile" <> short 'c' <> help "Compile to an executable")
+    <|> flag' LLVM (long "llvm" <> short 'l' <> help "Pretty print the generated llvm")
+    <|> flag' Compile (long "compile" <> short 'c' <> help "Compile to an executable")
     <*> strOption (short 'o' <> value "a.out" <> metavar "FILE")
   -- running the file to see the expected output is default
     <|> pure Run
