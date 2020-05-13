@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Microc.Codegen
   ( codegenProgram
@@ -43,7 +44,6 @@ import qualified Data.Text                     as T
 import           Data.Text                      ( Text )
 import           Data.Word                      ( Word32 )
 import           Data.List                      ( find )
-import           Debug.Trace
 
 -- When using the IRBuilder, both functions and variables have the type Operand
 data Env = Env { operands :: M.Map Text Operand
@@ -115,9 +115,7 @@ codegenLVal (SDeref e   ) = codegenSexpr e
 
 codegenLVal (SAccess e i) = do
   e' <- codegenLVal e
-  let zero   = L.int32 0
-      offset = L.int32 (fromIntegral i)
-  L.gep e' [zero, offset]
+  L.gep e' [L.int32 0, L.int32 (fromIntegral i)]
 
 codegenSexpr :: SExpr -> Codegen Operand
 codegenSexpr (TyInt         , SLiteral i ) = pure $ L.int32 (fromIntegral i)
@@ -156,24 +154,22 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       (TyInt    , TyInt    ) -> L.add lhs' rhs'
       (TyFloat  , TyFloat  ) -> L.fadd lhs' rhs'
       _                      -> error "Internal error - semant failed"
-    Sub ->
-      let zero = L.int32 0
-      in  case (fst lhs, fst rhs) of
-            (Pointer typ, Pointer typ') -> if typ' /= typ
-              then error "Internal error - semant failed"
-              else do
-                lhs'' <- L.ptrtoint lhs' AST.i64
-                rhs'' <- L.ptrtoint rhs' AST.i64
-                diff  <- L.sub lhs'' rhs''
-                width <- L.int64 . fromIntegral <$> sizeof typ
-                result <- L.sdiv diff width
-                L.trunc result AST.i32
-            (Pointer _, TyInt) -> do
-              rhs'' <- L.sub zero rhs'
-              L.gep lhs' [rhs'']
-            (TyInt  , TyInt  ) -> L.sub lhs' rhs'
-            (TyFloat, TyFloat) -> L.fsub lhs' rhs'
-            _                  -> error "Internal error - semant failed"
+    Sub -> case (fst lhs, fst rhs) of
+      (Pointer typ, Pointer typ') -> if typ' /= typ
+        then error "Internal error - semant failed"
+        else do
+          lhs''  <- L.ptrtoint lhs' AST.i64
+          rhs''  <- L.ptrtoint rhs' AST.i64
+          diff   <- L.sub lhs'' rhs''
+          width  <- L.int64 . fromIntegral <$> sizeof typ
+          result <- L.sdiv diff width
+          L.trunc result AST.i32
+      (Pointer _, TyInt) -> do
+        rhs'' <- L.sub (L.int32 0) rhs'
+        L.gep lhs' [rhs'']
+      (TyInt  , TyInt  ) -> L.sub lhs' rhs'
+      (TyFloat, TyFloat) -> L.fsub lhs' rhs'
+      _                  -> error "Internal error - semant failed"
     Mult -> case t of
       TyInt   -> L.mul lhs' rhs'
       TyFloat -> L.fmul lhs' rhs'
@@ -330,9 +326,9 @@ codegenFunc f = mdo
   -- We wrap generating the function inside of the `locally` combinator in
   -- order to prevent local variables from escaping the scope of the function
   (function, strs) <- locally $ do
-    retty <- ltypeOfTyp (styp f)
-    args  <- mapM mkParam (sformals f)
-    fun <- L.function name args retty genBody
+    retty    <- ltypeOfTyp (styp f)
+    args     <- mapM mkParam (sformals f)
+    fun      <- L.function name args retty genBody
     strings' <- gets strings
     pure (fun, strings')
   modify $ \e -> e { strings = strs }
@@ -379,13 +375,13 @@ codegenGlobal (Bind t n) = do
   typ <- ltypeOfTyp t
   let name    = mkName $ cs n
       initVal = case t of
-        Pointer _ -> C.Int 64 0
+        Pointer  _ -> C.Int 64 0
         TyStruct _ -> C.AggregateZero typ
-        TyInt -> C.Int 32 0
-        TyBool -> C.Int 1 0
-        TyFloat -> C.Float (AST.Double 0)
-        TyChar -> C.Int 8 0
-        TyVoid -> error "Global void variables illegal"
+        TyInt      -> C.Int 32 0
+        TyBool     -> C.Int 1 0
+        TyFloat    -> C.Float (AST.Double 0)
+        TyChar     -> C.Int 8 0
+        TyVoid     -> error "Global void variables illegal"
   var <- L.global name typ initVal
   registerOperand n var
 
@@ -397,12 +393,12 @@ emitTypeDef (Struct name _) = do
 
 codegenProgram :: SProgram -> AST.Module
 codegenProgram (structs, globals, funcs) =
-  flip evalState (Env { operands = M.empty, structs = structs, strings = M.empty })
+  flip evalState (Env { operands = M.empty, structs, strings = M.empty })
     $ L.buildModuleT "microc"
     $ do
         printf <- L.externVarArgs (mkName "printf") [charStar] AST.i32
         registerOperand "printf" printf
-        mapM_ emitBuiltIn builtIns
+        mapM_ emitBuiltIn   builtIns
         mapM_ emitTypeDef   structs
         mapM_ codegenGlobal globals
         mapM_ codegenFunc   funcs
