@@ -1,30 +1,31 @@
 module Microc.Toplevel where
 
 import           LLVM.AST
-import           LLVM.Pretty
 
 import           Data.String.Conversions
 import           Data.Text                      ( Text )
-import qualified Data.Text.IO                  as T
+import qualified LLVM.Module                   as LLVM
+import           LLVM.Context
+import           LLVM.Analysis
 
-import           System.IO
 import           System.Directory
 import           System.Process
 import           System.Posix.Temp
 
-import           Control.Exception              ( bracket )
+import           Control.Exception
 
 -- | Generate an executable at the given filepath from an llvm module
 compile :: Module -> FilePath -> IO ()
 compile llvmModule outfile =
   bracket (mkdtemp "build") removePathForcibly $ \buildDir ->
     withCurrentDirectory buildDir $ do
-      -- create temporary file for "output.ll"
-      (llvm, llvmHandle) <- mkstemps "output" ".ll"
-      let runtime = "../src/runtime.c"
+      let llvm = "output.ll"
+          runtime = "../src/runtime.c"
       -- write the llvmModule to a file
-      T.hPutStrLn llvmHandle (cs $ ppllvm llvmModule)
-      hClose llvmHandle
+      withContext $ \ctx -> LLVM.withModuleFromAST
+        ctx
+        llvmModule
+        (\modl -> verify modl >> LLVM.writeBitcodeToFile (LLVM.File llvm) modl)
       -- link the runtime with the assembly
       callProcess
         "clang"
