@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7a46b48ab7b181927a291ad0d2015d84c5208dc794da43c6e6d9f9fdefe21dc4
+-- hash: a168355244c92a5a39b4a5a9f6accd48993a937062b5c7daca3f02e5c8838a2c
 
 name:           mcc
 version:        0.1.0.0
@@ -52,12 +52,12 @@ library
     , containers
     , directory
     , filepath
+    , llvm-hs >=9 && <10
     , llvm-hs-pretty >=0.9 && <1
     , llvm-hs-pure >=9 && <10
     , megaparsec
     , mtl
     , parser-combinators
-    , pretty-simple
     , prettyprinter
     , process
     , string-conversions
@@ -80,6 +80,7 @@ executable mcc
     , containers
     , directory
     , filepath
+    , llvm-hs >=9 && <10
     , llvm-hs-pretty >=0.9 && <1
     , llvm-hs-pure >=9 && <10
     , mcc
@@ -111,13 +112,13 @@ test-suite testall
     , containers
     , directory
     , filepath
+    , llvm-hs >=9 && <10
     , llvm-hs-pretty >=0.9 && <1
     , llvm-hs-pure >=9 && <10
     , mcc
     , megaparsec
     , mtl
     , parser-combinators
-    , pretty-simple
     , prettyprinter
     , process
     , string-conversions
@@ -145,13 +146,13 @@ benchmark bench
     , criterion
     , directory
     , filepath
+    , llvm-hs >=9 && <10
     , llvm-hs-pretty >=0.9 && <1
     , llvm-hs-pure >=9 && <10
     , mcc
     , megaparsec
     , mtl
     , parser-combinators
-    , pretty-simple
     , prettyprinter
     , process
     , string-conversions
