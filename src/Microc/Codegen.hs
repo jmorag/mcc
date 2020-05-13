@@ -13,6 +13,7 @@ import qualified LLVM.AST.FloatingPointPredicate
                                                as FP
 import           LLVM.AST                       ( Operand )
 import qualified LLVM.AST                      as AST
+import qualified LLVM.AST.Float                as AST
 import qualified LLVM.AST.Type                 as AST
 import qualified LLVM.AST.Constant             as C
 import           LLVM.AST.Name
@@ -156,7 +157,7 @@ codegenSexpr (t, SBinop op lhs rhs) = do
       (TyFloat  , TyFloat  ) -> L.fadd lhs' rhs'
       _                      -> error "Internal error - semant failed"
     Sub ->
-      let zero = L.int64 0
+      let zero = L.int32 0
       in  case (fst lhs, fst rhs) of
             (Pointer typ, Pointer typ') -> if typ' /= typ
               then error "Internal error - semant failed"
@@ -165,7 +166,8 @@ codegenSexpr (t, SBinop op lhs rhs) = do
                 rhs'' <- L.ptrtoint rhs' AST.i64
                 diff  <- L.sub lhs'' rhs''
                 width <- L.int64 . fromIntegral <$> sizeof typ
-                L.sdiv diff width
+                result <- L.sdiv diff width
+                L.trunc result AST.i32
             (Pointer _, TyInt) -> do
               rhs'' <- L.sub zero rhs'
               L.gep lhs' [rhs'']
@@ -272,7 +274,7 @@ codegenSexpr (_, SCast t' e@(t, _)) = do
     _ -> error $ "Internal error - semant failed. Invalid sexpr " <> show
       (t', SCast t e)
 
-codegenSexpr (_, SNoexpr) = pure $ L.int32 0
+codegenSexpr (_, SNoexpr) = pure $ L.int64 0
 
 -- Final catchall
 codegenSexpr sx =
@@ -367,16 +369,23 @@ builtIns :: [(String, [AST.Type], AST.Type)]
 builtIns =
   [ ("printbig"     , [AST.i32]               , AST.void)
   , ("llvm.pow.f64" , [AST.double, AST.double], AST.double)
-  , ("llvm.powi.i32", [AST.double, AST.i32]   , AST.double)
+  , ("llvm.powi.f64", [AST.double, AST.i32]   , AST.double)
   , ("malloc"       , [AST.i32]               , AST.ptr AST.i8)
   , ("free"         , [AST.ptr AST.i8]        , AST.void)
   ]
 
 codegenGlobal :: Bind -> LLVM ()
 codegenGlobal (Bind t n) = do
-  let name    = mkName $ cs n
-      initVal = C.Int 0 0
   typ <- ltypeOfTyp t
+  let name    = mkName $ cs n
+      initVal = case t of
+        Pointer _ -> C.Int 64 0
+        TyStruct _ -> C.AggregateZero typ
+        TyInt -> C.Int 32 0
+        TyBool -> C.Int 1 0
+        TyFloat -> C.Float (AST.Double 0)
+        TyChar -> C.Int 8 0
+        TyVoid -> error "Global void variables illegal"
   var <- L.global name typ initVal
   registerOperand n var
 
