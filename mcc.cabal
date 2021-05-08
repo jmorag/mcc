@@ -42,6 +42,8 @@ common common-options
 
   if impl(ghc >=8.2)
     ghc-options: -fhide-source-paths
+    default-extensions:
+      DerivingStrategies
 
   if impl(ghc >=8.4)
     ghc-options: -Wmissing-export-lists -Wpartial-fields

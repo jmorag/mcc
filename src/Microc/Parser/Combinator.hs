@@ -23,7 +23,7 @@ opTable =
     , unary (Unop Not) "!"
     , unary Deref      "*"
     , unary Addr       "&"
-    , Prefix (try $ Cast <$> (parens typeP))
+    , Prefix (try $ Cast <$> parens typeP)
     ]
   , [infixR Power "**"]
   , [infixL Mult "*", infixL Div "/"]

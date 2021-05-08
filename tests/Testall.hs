@@ -48,7 +48,7 @@ parsing = do
   files <- concat <$> mapM (findByExtension [".mc"]) ["tests/pass", "tests/fail"]
   fmap (testGroup "parsing") $ forM files $ \file -> do
     input      <- T.readFile file
-    combinator <- pure $ runParser programP file input
+    let combinator = runParser programP file input
     generator  <- try @IOError . evaluate . parse . alexScanTokens $ cs input
     pure . testCase file $ case (combinator, generator) of
       (Right ast, Right ast') -> assertEqual file ast ast'

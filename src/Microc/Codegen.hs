@@ -80,7 +80,7 @@ ltypeOfTyp = \case
   TyFloat        -> pure AST.double
   TyBool         -> pure AST.i1
   -- (void *) is invalid LLVM
-  Pointer TyVoid -> pure $ charStar
+  Pointer TyVoid -> pure charStar
   -- special case to handle recursively defined structures
   -- TODO: add real cycle checking so that improperly defined
   -- recursive types case the compiler to hang forever
