@@ -20,6 +20,8 @@ license-file:       LICENSE
 build-type:         Simple
 extra-source-files: README.md
 
+tested-with:     GHC ==8.10.4
+
 source-repository head
   type:     git
   location: https://github.com/jmorag/mcc

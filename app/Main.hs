@@ -1,4 +1,4 @@
-module Main where
+module Main(main) where
 
 import           Microc                  hiding ( Parser )
 
@@ -14,7 +14,7 @@ import           Data.Text.Prettyprint.Doc.Render.Text
 
 data Action = Ast | Sast | LLVM | Compile FilePath | Run
 data ParserType = Combinator | Generator
-data Options = Options { action :: Action, infile :: FilePath, parser :: ParserType }
+data Options = Options { _action :: Action, _infile :: FilePath, _parser :: ParserType }
 
 actionP :: Parser Action
 actionP = flag' Ast (long "ast" <> short 'a' <> help "Pretty print the ast")

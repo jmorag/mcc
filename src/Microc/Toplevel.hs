@@ -1,4 +1,4 @@
-module Microc.Toplevel where
+module Microc.Toplevel ( compile, run ) where
 
 import           LLVM.AST
 

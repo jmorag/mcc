@@ -50,7 +50,7 @@ data Env = Env { operands :: M.Map Text Operand
                , structs :: [ Struct ]
                , strings :: M.Map Text Operand
                }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- LLVM and Codegen type synonyms allow us to emit module definitions and basic
 -- block instructions at the top level without being forced to pass explicit

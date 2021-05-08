@@ -1,4 +1,4 @@
-module Microc.Semant.Analysis where
+module Microc.Semant.Analysis ( genCFG, validate )  where
 
 import Microc.Sast
 

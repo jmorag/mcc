@@ -1,14 +1,31 @@
-module Microc.Scanner.Combinator where
+module Microc.Scanner.Combinator
+  ( Parser
+  , braces
+  , charlit
+  , comma
+  , float
+  , identifier
+  , int
+  , lexeme
+  , parens
+  , rword
+  , rws
+  , sc
+  , semi
+  , star
+  , strlit
+  , symbol
+  ) where
 
-import           Data.Void
+import           Control.Monad                  ( void )
 import           Data.Char
+import           Data.String.Conversions
+import           Data.Text                      ( Text )
+import qualified Data.Text                     as T
+import           Data.Void
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer    as L
-import           Data.Text                      ( Text )
-import qualified Data.Text                     as T
-import           Control.Monad                  ( void )
-import           Data.String.Conversions
 
 type Parser = Parsec Void Text
 

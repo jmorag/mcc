@@ -1,11 +1,18 @@
-module Microc.Semant.Error where
+module Microc.Semant.Error
+  ( BindingKind (..),
+    BindingLoc (..),
+    SemantError (..),
+    SymbolKind (..),
+    VarKind (..),
+  )
+where
 
 import           Microc.Ast
 import           Data.Text                      ( Text )
 import           Data.Text.Prettyprint.Doc
 
 type Name = Text
-data BindingLoc = F Function | S Struct | Toplevel deriving Show
+data BindingLoc = F Function | S Struct | Toplevel deriving stock Show
 data SemantError =
     IllegalBinding Name BindingKind VarKind BindingLoc
   | UndefinedSymbol Name SymbolKind Expr
@@ -18,12 +25,12 @@ data SemantError =
   | AssignmentError { lhs :: Expr, rhs :: Expr }
   | AccessError { struct :: Expr, field :: Expr }
   | DeadCode Statement -- ^ For statements in a block following a return
-  deriving (Show)
+  deriving stock (Show)
 
-data BindingKind = Duplicate | Void deriving (Show)
-data SymbolKind = Var | Func deriving (Show)
+data BindingKind = Duplicate | Void deriving stock (Show)
+data SymbolKind = Var | Func deriving stock (Show)
 
-data VarKind = Global | Formal | Local | StructField deriving (Show, Eq, Ord)
+data VarKind = Global | Formal | Local | StructField deriving stock (Show, Eq, Ord)
 
 instance Pretty VarKind where
   pretty = unsafeViaShow
