@@ -1,4 +1,4 @@
-cabal-version: 1.12
+cabal-version:      2.4
 
 -- This file has been generated from package.yaml by hpack version 0.33.0.
 --
@@ -6,157 +6,121 @@ cabal-version: 1.12
 --
 -- hash: a168355244c92a5a39b4a5a9f6accd48993a937062b5c7daca3f02e5c8838a2c
 
-name:           mcc
-version:        0.1.0.0
-synopsis:       A microc compiler in Haskell
-category:       Compilers/Interpreters
-homepage:       https://github.com/jmorag/mcc#readme
-bug-reports:    https://github.com/jmorag/mcc/issues
-author:         Joseph Morag
-maintainer:     Joseph Morag
-license:        BSD3
-license-file:   LICENSE
-build-type:     Simple
-extra-source-files:
-    README.md
+name:               mcc
+version:            0.1.0.0
+synopsis:           A microc compiler in Haskell
+description:        A microc compiler in Haskell.
+category:           Compilers/Interpreters
+homepage:           https://github.com/jmorag/mcc#readme
+bug-reports:        https://github.com/jmorag/mcc/issues
+author:             Joseph Morag
+maintainer:         Joseph Morag
+license:            BSD-3-Clause
+license-file:       LICENSE
+build-type:         Simple
+extra-source-files: README.md
 
 source-repository head
-  type: git
+  type:     git
   location: https://github.com/jmorag/mcc
 
-library
-  exposed-modules:
-      Microc
-      Microc.Ast
-      Microc.Codegen
-      Microc.Parser.Combinator
-      Microc.Parser.Generator
-      Microc.Sast
-      Microc.Scanner.Combinator
-      Microc.Scanner.Generator
-      Microc.Semant
-      Microc.Semant.Analysis
-      Microc.Semant.Error
-      Microc.Toplevel
-      Microc.Utils
-  other-modules:
-      Paths_mcc
-  hs-source-dirs:
-      src
-  default-extensions: OverloadedStrings, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+common common-options
   build-depends:
-      array
-    , base >=4.7 && <5
+    , base                >=4.7 && <5
+    , megaparsec
+    , string-conversions
+    , text
+
+  ghc-options:
+    -Wall -Wextra -Wcompat -Widentities -Wincomplete-uni-patterns
+    -Wincomplete-record-updates -Wredundant-constraints
+    -Wnoncanonical-monad-instances -fno-warn-name-shadowing
+
+  default-extensions:
+    LambdaCase
+    OverloadedStrings
+
+  if impl(ghc >=8.2)
+    ghc-options: -fhide-source-paths
+
+  if impl(ghc >=8.4)
+    ghc-options: -Wmissing-export-lists -Wpartial-fields
+
+  if impl(ghc >=8.8)
+    ghc-options: -Wmissing-deriving-strategies -fwrite-ide-info -hiedir=.hie
+
+  if impl(ghc >=8.10)
+    ghc-options: -Wunused-packages
+
+  other-modules:      Paths_mcc
+  autogen-modules:    Paths_mcc
+  default-language:   Haskell2010
+
+library
+  import:          common-options
+  exposed-modules:
+    Microc
+    Microc.Ast
+    Microc.Codegen
+    Microc.Parser.Combinator
+    Microc.Parser.Generator
+    Microc.Sast
+    Microc.Scanner.Combinator
+    Microc.Scanner.Generator
+    Microc.Semant
+    Microc.Semant.Analysis
+    Microc.Semant.Error
+    Microc.Toplevel
+    Microc.Utils
+
+  hs-source-dirs:  src
+  build-depends:
+    , array
     , bytestring
     , containers
     , directory
-    , filepath
-    , llvm-hs >=9 && <10
-    , llvm-hs-pretty >=0.9 && <1
-    , llvm-hs-pure >=9 && <10
-    , megaparsec
+    , llvm-hs             >=9 && <13
+    , llvm-hs-pure        >=9 && <13
     , mtl
     , parser-combinators
     , prettyprinter
     , process
-    , string-conversions
-    , text
     , unix
-  default-language: Haskell2010
 
 executable mcc
-  main-is: Main.hs
-  other-modules:
-      Paths_mcc
-  hs-source-dirs:
-      app
-  default-extensions: OverloadedStrings, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  import:         common-options
+  main-is:        Main.hs
+  other-modules:  Paths_mcc
+  hs-source-dirs: app
   build-depends:
-      array
-    , base >=4.7 && <5
-    , bytestring
-    , containers
-    , directory
-    , filepath
-    , llvm-hs >=9 && <10
-    , llvm-hs-pretty >=0.9 && <1
-    , llvm-hs-pure >=9 && <10
+    , llvm-hs-pretty        >=0.9 && <13
     , mcc
-    , megaparsec
-    , mtl
     , optparse-applicative
-    , parser-combinators
     , pretty-simple
     , prettyprinter
-    , process
-    , string-conversions
-    , text
-    , unix
-  default-language: Haskell2010
 
 test-suite testall
-  type: exitcode-stdio-1.0
-  main-is: Testall.hs
-  other-modules:
-      Paths_mcc
-  hs-source-dirs:
-      tests
-  default-extensions: OverloadedStrings, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  import:         common-options
+  type:           exitcode-stdio-1.0
+  main-is:        Testall.hs
+  other-modules:  Paths_mcc
+  hs-source-dirs: tests
   build-depends:
-      array
-    , base >=4.7 && <5
-    , bytestring
-    , containers
-    , directory
     , filepath
-    , llvm-hs >=9 && <10
-    , llvm-hs-pretty >=0.9 && <1
-    , llvm-hs-pure >=9 && <10
     , mcc
-    , megaparsec
-    , mtl
-    , parser-combinators
     , prettyprinter
-    , process
-    , string-conversions
     , tasty
     , tasty-golden
     , tasty-hunit
-    , text
-    , unix
-  default-language: Haskell2010
 
 benchmark bench
-  type: exitcode-stdio-1.0
-  main-is: Bench.hs
-  other-modules:
-      Paths_mcc
-  hs-source-dirs:
-      bench
-  default-extensions: OverloadedStrings, LambdaCase
-  ghc-options: -Wall -fno-warn-name-shadowing -Wcompat -Wincomplete-uni-patterns
+  import:         common-options
+  type:           exitcode-stdio-1.0
+  main-is:        Bench.hs
+  other-modules:  Paths_mcc
+  hs-source-dirs: bench
   build-depends:
-      array
-    , base >=4.7 && <5
-    , bytestring
-    , containers
     , criterion
-    , directory
     , filepath
-    , llvm-hs >=9 && <10
-    , llvm-hs-pretty >=0.9 && <1
-    , llvm-hs-pure >=9 && <10
     , mcc
-    , megaparsec
-    , mtl
-    , parser-combinators
-    , prettyprinter
-    , process
-    , string-conversions
     , tasty-golden
-    , text
-    , unix
-  default-language: Haskell2010

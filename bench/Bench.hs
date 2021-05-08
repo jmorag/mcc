@@ -17,7 +17,7 @@ megaparse input = case runParser programP "" input of
   Left _ -> error "We only like success"
   Right p -> p
 
-happyparse = alexScanTokens . parse
+happyparse = parse . alexScanTokens
 
 main = do
   mcFiles <- findByExtension [".mc"] "tests/pass"
