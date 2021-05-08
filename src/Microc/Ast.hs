@@ -1,3 +1,4 @@
+ {-# LANGUAGE StrictData #-}
 module Microc.Ast
   ( Op(..)
   , Uop(..)

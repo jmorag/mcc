@@ -1,3 +1,4 @@
+ {-# LANGUAGE StrictData #-}
 module Main(main) where
 
 import           Microc                  hiding ( Parser )

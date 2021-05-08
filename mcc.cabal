@@ -102,6 +102,7 @@ executable mcc
     , optparse-applicative
     , pretty-simple
     , prettyprinter
+--  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
 
 test-suite testall
   import:         common-options
@@ -116,6 +117,9 @@ test-suite testall
     , tasty
     , tasty-golden
     , tasty-hunit
+-- The following breaks the running of the test suite by changing the current
+-- working directory
+--  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
 
 benchmark bench
   import:         common-options
@@ -128,3 +132,4 @@ benchmark bench
     , filepath
     , mcc
     , tasty-golden
+--  ghc-options:    -threaded -rtsopts -with-rtsopts=-N

@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE StrictData #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Microc.Codegen
   ( codegenProgram

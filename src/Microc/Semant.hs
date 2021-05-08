@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StrictData #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Semant
   ( checkProgram

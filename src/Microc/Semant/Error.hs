@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Microc.Semant.Error
   ( BindingKind (..),
     BindingLoc (..),
