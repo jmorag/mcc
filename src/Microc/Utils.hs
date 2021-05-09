@@ -1,4 +1,4 @@
-module Microc.Utils( locally ) where
+module Microc.Utils ( locally ) where
 
 import           Control.Monad.State
 
