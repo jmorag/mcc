@@ -42,7 +42,7 @@ more [detailed instructions](https://github.com/llvm-hs/llvm-hs#installing-llvm)
 to install llvm.
 
 Note that unlike the OCaml version of MicroC, this project requires a more cecent version of LLVM.
-(These instauctions use LLVM 12.)
+(These instructions use LLVM 12.)
 
 4. Pull down the necessary sources and make sure that you have the branches
    that correspond to the version of `llvm` that you are using checked out:
