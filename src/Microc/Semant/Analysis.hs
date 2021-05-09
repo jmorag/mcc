@@ -1,4 +1,5 @@
-module Microc.Semant.Analysis where
+{-# LANGUAGE StrictData #-}
+module Microc.Semant.Analysis ( genCFG, validate )  where
 
 import Microc.Sast
 

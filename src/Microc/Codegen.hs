@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE StrictData #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Microc.Codegen
   ( codegenProgram
@@ -50,7 +51,7 @@ data Env = Env { operands :: M.Map Text Operand
                , structs :: [ Struct ]
                , strings :: M.Map Text Operand
                }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- LLVM and Codegen type synonyms allow us to emit module definitions and basic
 -- block instructions at the top level without being forced to pass explicit
@@ -80,7 +81,7 @@ ltypeOfTyp = \case
   TyFloat        -> pure AST.double
   TyBool         -> pure AST.i1
   -- (void *) is invalid LLVM
-  Pointer TyVoid -> pure $ charStar
+  Pointer TyVoid -> pure charStar
   -- special case to handle recursively defined structures
   -- TODO: add real cycle checking so that improperly defined
   -- recursive types case the compiler to hang forever

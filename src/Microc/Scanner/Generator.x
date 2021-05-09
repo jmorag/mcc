@@ -1,5 +1,5 @@
 {
-module Microc.Scanner.Generator where
+module Microc.Scanner.Generator ( alexScanTokens, Lexeme(..) ) where
 import Microc.Ast
 
 }

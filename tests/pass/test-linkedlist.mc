@@ -33,6 +33,10 @@ int main() {
   int i;
   struct List *l;
   struct List *l2;
+
+  l = NULL;
+  l2 = NULL;
+
   for (i = 0; i < 20; i = i + 1) {
     l = cons(i, l);
   }

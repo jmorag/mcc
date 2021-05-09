@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StrictData #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Microc.Semant
   ( checkProgram
@@ -62,7 +63,7 @@ builtIns = M.fromList $ map
   ]
  where
   toFunc (name, tys, retty) =
-    (name, Function retty name (map (flip Bind "x") tys) [] [])
+    (name, Function retty name (map (`Bind` "x") tys) [] [])
 
 checkExpr :: Expr -> Semant SExpr
 checkExpr expr = case expr of
